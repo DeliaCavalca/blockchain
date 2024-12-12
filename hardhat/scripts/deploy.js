@@ -1,19 +1,16 @@
 async function main() {
-    // Ottieni il provider (a questo punto è importante che il provider sia correttamente configurato)
-    const [deployer] = await ethers.getSigners();  // Questo è il "signer" che effettua la transazione
+    const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
 
-    // Ottieni il contratto HelloWorld
-    const HelloWorld = await ethers.getContractFactory("HelloWorld");
+    const IPFSMessage = await ethers.getContractFactory("IPFSMessage");
+    const ipfsMessage = await IPFSMessage.deploy();
 
-    // Distribuisci il contratto
-    const helloWorld = await HelloWorld.deploy();
-    console.log("HelloWorld deployed to:", helloWorld.address);  // Qui stiamo stampando l'indirizzo del contratto
+    console.log("Contract deployed to:", ipfsMessage.address);
 }
 
 main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });
