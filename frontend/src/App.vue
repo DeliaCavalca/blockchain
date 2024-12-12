@@ -15,7 +15,8 @@
 <script>
 import { create as ipfsHttpClient } from "ipfs-http-client";
 import { ethers } from "ethers";
-import IPFSMessageABI from "/Users/giuseppecacciapuoti/Desktop/blockchain-main/hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json";
+//import IPFSMessageABI from "/Users/giuseppecacciapuoti/Desktop/blockchain-main/hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json";
+import IPFSMessageABI from "./../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json";
 
 
 export default {
@@ -24,7 +25,7 @@ export default {
       message: "",
       ipfsHash: "",
       messages: [],
-      contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3", // Inserisci l'indirizzo del contratto
+      contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3", // Indirizzo del contratto
       contract: null,
     };
   },
