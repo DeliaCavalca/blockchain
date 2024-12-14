@@ -31,6 +31,7 @@ export default {
   },
   methods: {
     async uploadToIPFS() {
+      console.log("UPLOAD TO IPFS")
       try {
         const ipfs = ipfsHttpClient({ url: "http://localhost:5001" });
         const result = await ipfs.add(this.message);
@@ -51,11 +52,13 @@ export default {
       }
     },
     async fetchMessages() {
+      console.log("FETCH MESSAGES")
       try {
         const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545"); // Connessione alla rete Hardhat
         const contract = new ethers.Contract(this.contractAddress, IPFSMessageABI.abi, provider);
 
         const messages = await contract.getMessages();
+        console.log(messages)
         this.messages = messages.map((msg) => ({
           ipfsHash: msg.ipfsHash,
           sender: msg.sender,
@@ -66,7 +69,18 @@ export default {
     },
   },
   async mounted() {
+
+    console.log("Test Connection to IPFS")
+  
+    const ipfs = ipfsHttpClient({ url: "http://localhost:5001" });
+    console.log(ipfs)
+    ipfs.add("Test message")
+      .then(result => console.log("Uploaded CID:", result.path))
+      .catch(error => console.error("CORS error:", error));
+
+
     await this.fetchMessages();
+
   },
 };
 </script>
