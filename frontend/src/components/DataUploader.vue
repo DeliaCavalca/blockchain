@@ -1,13 +1,33 @@
 <template>
-  <div>
-    <h1>Upload Data to IPFS</h1>
-    <input type="file" @change="onFileChange">
-    <input v-model="encryptionKey" placeholder="Encryption Key">
-    <button @click="generateKey">Generate Key</button>
-    <button @click="uploadToIpfs">Upload to IPFS</button>
-    <p v-if="ipfsHash">IPFS Hash: {{ ipfsHash }}</p>
-    <button @click="uploadData" :disabled="!ipfsHash || !encryptionKey">Upload Data to Blockchain</button>
-    <p>{{ message }}</p>
+  <div style="font-size: 13px; text-align: left;">
+    
+    <p v-if="!selectedFileName" class="m-0 p-0">Seleziona il tuo file <span><strong>.txt </strong></span>:</p>
+    <p v-else class="m-0 p-0">File selezionato: <span><strong>{{ selectedFileName }}</strong></span></p>
+
+
+    <div class="">
+      <label class="p-1 mt-1 custom-file-upload">
+        <span>Scegli file</span>
+        <input class="selectfileBtn" type="file" @change="onFileChange">
+      </label>
+    </div>
+
+    <div class="mt-5">
+      <input v-model="encryptionKey" placeholder="Encryption Key">
+      <button class="mt-2 p-1" @click="generateKey">Generate Key</button>
+    </div>
+
+    <div class="mt-2">
+      <button @click="uploadToIpfs">Upload to IPFS</button>
+      <p v-if="ipfsHash">IPFS Hash: {{ ipfsHash }}</p>
+      <button @click="uploadData" :disabled="!ipfsHash || !encryptionKey">Upload Data to Blockchain</button>
+      <p>{{ message }}</p>
+    </div>
+
+    <div class="mt-5">
+      <button class="btn uploadBtn mt-2 p-1" >Carica Dati</button>
+    </div>
+
   </div>
 </template>
 
@@ -21,15 +41,25 @@ const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 export default {
   data() {
     return {
+      contractAddress: null, // Indirizzo del Contratto
+      userAddress: null, // Indirizzo dell'utente Ethereum
+
       file: null,
+      selectedFileName: null,
       ipfsHash: "",
       encryptionKey: "",
       message: "",
-      contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3", // Indirizzo del contratto sulla blockchain
-      signerAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", // Sostituisci con l'indirizzo del tuo account Hardhat
-      contract: null
+      contract: null,
+
     };
   },
+
+  created() {
+    this.contractAddress = this.$store.state.contractAddress
+    this.userAddress = this.$store.state.userAddress
+  },
+
+
   methods: {
     generateKey() {
       const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -44,7 +74,12 @@ export default {
 
     // Gestisce il cambiamento del file
     onFileChange(event) {
-      this.file = event.target.files[0];
+      this.file = event.target.files[0]; // Ottieni il file selezionato
+      if(this.file) {
+        this.selectedFileName = this.file.name; // Aggiorna il nome del file
+      } else {
+        this.selectedFileName = null;
+      }
     },
 
     // Carica il file su IPFS
@@ -81,48 +116,16 @@ export default {
       let provider, contract, signer, contractWithSigner;
 
       try {
-        console.log("Connecting to Ethereum provider...");
+        
         provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
-        console.log("Provider connected.");
-      } catch (error) {
-        this.message = "Error connecting to Ethereum provider.";
-        console.error("Error connecting to Ethereum provider:", error);
-        return;
-      }
-
-      try {
-        console.log("Getting contract instance...");
         contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
-        console.log("Contract instance obtained.");
-      } catch (error) {
-        this.message = "Error getting contract instance.";
-        console.error("Error getting contract instance:", error);
-        return;
-      }
 
-      try {
-        console.log("Getting signer...");
-        signer = provider.getSigner(0);
-        console.log("Signer obtained. Address:", await signer.getAddress());
-      } catch (error) {
-        this.message = "Error getting signer.";
-        console.error("Error getting signer:", error);
-        return;
-      }
-
-      try {
-        console.log("Connecting contract with signer...");
+        signer = provider.getSigner(this.userAddress);
         contractWithSigner = contract.connect(signer);
-        console.log("Contract connected with signer.");
-      } catch (error) {
-        this.message = "Error connecting contract with signer.";
-        console.error("Error connecting contract with signer:", error);
-        return;
-      }
 
-      try {
-        const initialBalance = await provider.getBalance(this.signerAddress);
+        const initialBalance = await provider.getBalance(this.userAddress);
         console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
+
 
         console.log("Uploading data to blockchain...");
         const ipfsHashBytes32 = this.ipfsHashToBytes32(this.ipfsHash);
@@ -133,50 +136,54 @@ export default {
         this.message = `Transaction sent: ${tx.hash}`;
         console.log("Transaction hash:", tx.hash);
         await tx.wait();
-        console.log("Data uploaded successfully!");
 
-        const finalBalance = await provider.getBalance(this.signerAddress);
-        console.log(`Final Balance: ${ethers.utils.formatEther(finalBalance)} ETH`);
+        const finalBalance = await provider.getBalance(this.userAddress);
+        const finalEthBalance = ethers.utils.formatEther(finalBalance); // Converte il saldo in ETH
+        console.log(`Final Balance: ${finalEthBalance} ETH`);
+        this.$store.commit('SET_ETH_BALANCE', finalEthBalance);
 
-        this.message = `Data uploaded successfully! \nInitial Balance: ${ethers.utils.formatEther(initialBalance)} ETH\nFinal Balance: ${ethers.utils.formatEther(finalBalance)} ETH`;
+        console.log("DATA UPLOADED SUCCESSFULLY");
+        
       } catch (error) {
-        if (error.code === ethers.errors.INSUFFICIENT_FUNDS) {
-          this.message = "Error: Insufficient funds for gas.";
-        } else if (error.code === ethers.errors.NONCE_EXPIRED) {
-          this.message = "Error: Transaction nonce is too low.";
-        } else if (error.code === ethers.errors.REPLACEMENT_UNDERPRICED) {
-          this.message = "Error: Replacement transaction underpriced.";
-        } else if (error.code === ethers.errors.NETWORK_ERROR) {
-          this.message = "Error: Network error.";
-        } else {
-          this.message = "Error uploading data to blockchain.";
-        }
-        console.error("Error uploading data to blockchain:", error);
+        console.error("Error connecting to Ethereum provider:", error);
+        return;
       }
+      
     }
   }
 };
 </script>
 
-<style>
-/* Stili per il componente */
-input[type="file"],
-input[type="text"],
-button {
+<style scoped>
+
+.custom-file-upload {
+  display: inline-block;
+  border: 1px solid #0d442b;
+  border-radius: 3px;        
+  cursor: pointer;           
+  background-color: transparent; 
+  transition: background-color 0.3s, color 0.3s; 
+}
+.custom-file-upload:hover {
+  background-color: #0d442b;  
+  color: white;              
+}
+.custom-file-upload input[type="file"] {
+  display: none; /* Nascondi il vero input file */
+}
+
+.uploadBtn {
   display: block;
-  margin: 10px 0;
+  font-size: 13px;
+  border: 1px solid #0d442b;
+  border-radius: 3px;        
+  cursor: pointer;  
+  background-color: transparent; 
+  transition: background-color 0.3s, color 0.3s;   
+}
+.uploadBtn:hover {
+  background-color: #0d442b;  
+  color: white;              
 }
 
-button {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
 </style>

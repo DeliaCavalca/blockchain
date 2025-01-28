@@ -2,6 +2,22 @@
 pragma solidity ^0.8.0;
 
 contract IPFSMessage {
+
+    // Ruoli per gli User
+    enum Role { User, Verifier, Admin }
+    
+    // Struttura di User
+    struct User {
+        Role role; // Ruolo dell'utente
+    }
+
+    // Mappatura per associare l'indirizzo dell'utente al suo stato
+    mapping(address => User) public users;
+
+    // Array per tenere traccia degli indirizzi degli utenti
+    address[] public userAddresses;
+
+
     // Mappature per memorizzare i dati degli utenti e dei verificatori
     mapping(address => uint256) public userPayments;
     mapping(bytes32 => string) public encryptedData;
@@ -23,6 +39,42 @@ contract IPFSMessage {
     event DataUploaded(address indexed user, bytes32 ipfsHash);
     event DataVerified(bytes32 ipfsHash, bool isValid);
     event CampaignClosed(string status);
+
+
+    // Metodo eseguito quando viene fatto il deploy del contratto
+    // Assegna i ruoli agli account generati da Hardhat
+    constructor(address[] memory _accounts) {
+        
+        // Admin
+        users[_accounts[0]] = User({ role: Role.Admin });
+        
+        // Verifiers
+        for (uint256 i = 1; i < 5; i++) {
+            users[_accounts[i]] = User({ role: Role.Verifier });
+        }
+
+        // Users
+        for (uint256 i = 5; i < _accounts.length; i++) {
+            users[_accounts[i]] = User({ role: Role.User });
+        }
+
+        // Salva gli indirizzi degli utenti
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            userAddresses.push(_accounts[i]);
+        }
+
+    }
+
+    // Funzione per ottenere la lista di tutti gli utenti
+    function getAllUsers() public view returns (address[] memory) {
+        return userAddresses;
+    }
+
+    // Funzione per ottenere il ruolo di un utente dato il suo indirizzo
+    function getUserRole(address userAddress) public view returns (Role) {
+        return users[userAddress].role;
+    }
+
 
     // Funzione per caricare i dati su IPFS
     function uploadData(bytes32 ipfsHash, string memory encryptionKey) public payable {
@@ -60,6 +112,9 @@ contract IPFSMessage {
 
     // Funzione per la verifica dei dati da parte dei verificatori
     function verifyData(bytes32 ipfsHash, string memory encryptionKey) public {
+        // Verifica che l'utente sia un verificatore
+        require(users[msg.sender].role == Role.Verifier, "Only verifiers can verify data");
+
         require(bytes(encryptedData[ipfsHash]).length != 0, "Data not found");
         
         // Simulazione della verifica dei dati: il verificatore deve fornire la chiave corretta
