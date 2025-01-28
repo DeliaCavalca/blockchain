@@ -41,26 +41,35 @@ export default {
       this.encryptionKey = key;
       console.log("Generated Encryption Key:", this.encryptionKey);
     },
+
     // Gestisce il cambiamento del file
     onFileChange(event) {
       this.file = event.target.files[0];
     },
+
     // Carica il file su IPFS
     async uploadToIpfs() {
       try {
+        if (!this.file) {
+          throw new Error("No file selected");
+        }
+
         console.log("Uploading file to IPFS...");
         const added = await client.add(this.file);
         this.ipfsHash = added.path; // Salva l'hash IPFS del file caricato
         console.log("File uploaded to IPFS with hash:", this.ipfsHash);
+        
       } catch (error) {
         this.message = "Error uploading file to IPFS.";
         console.error("Error uploading file to IPFS:", error);
       }
     },
+
     // Converti la stringa hash IPFS in bytes32
     ipfsHashToBytes32(ipfsHash) {
       return ethers.utils.id(ipfsHash);
     },
+
     // Carica i dati sulla blockchain
     async uploadData() {
       if (!this.ipfsHash || !this.encryptionKey) {
