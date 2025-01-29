@@ -11,6 +11,7 @@ export default createStore({
     userRole: null,      // Role of the User Logged
     ethBalance: null,    // ETH Balance of the User Logged
 
+    status: null, // Status of the Crowdsensing
     
   },
   getters: {
@@ -18,6 +19,7 @@ export default createStore({
     isAdmin: (state) => state.userRole == "Admin",
     isVerifier: (state) => state.userRole == "Verifier",
     ethBalance: (state) => state.ethBalance,
+    isClosed: (state) => state.status == "Closed",
   },
   mutations: {
     SET_USER_ADDRESS(state, userAddress) {
@@ -28,6 +30,9 @@ export default createStore({
     },
     SET_ETH_BALANCE(state, ethBalance) {
       state.ethBalance = ethBalance
+    },
+    SET_STATUS(state, status) {
+      state.status = status
     },
     
   },

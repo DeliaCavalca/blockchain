@@ -1,5 +1,18 @@
 <template>
   
+    <div v-if="this.showAlertSuccessLoad" class="alert alert-success alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+        I tuoi dati sono stati caricati correttamente!
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" @click="closeAlertSuccess"></button>
+    </div>
+    <div v-if="this.showAlertErrorLoad" class="alert alert-danger alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+        <strong>Attenzione!</strong> Si è verificato un errore. I tuoi dati <strong>NON</strong> sono stati caricati.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" @click="closeAlertError"></button>
+    </div>
+
+    <div v-if="isClosed" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+        <strong>Attenzione!</strong> La campagna di Crowdsensing è stata <strong>chiusa</strong>. Attualmente non è possibile caricare ulteriori dati.
+    </div>
+
     <div class="border p-3" style="border-radius: 6px;">
         
         <div class="row">
@@ -34,7 +47,7 @@
         
     </div>
 
-    <div class="border mt-3 p-3" style="border-radius: 6px;">
+    <div class="border mt-3 p-3" v-if="!isVerifier && !isAdmin" style="border-radius: 6px;">
         <p class="m-0 p-0" style="font-weight: bold;  text-align: left;">Caricamento Dati Crowdsensing</p>
         <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
             Contribuisci al nostro sistema decentralizzato caricando i tuoi dati in modo sicuro e verificabile!
@@ -57,6 +70,7 @@
   
 <script>
 import { mapGetters } from 'vuex'
+import eventBus from '@/eventBus';
 
 import DataUploader from '../components/DataUploader.vue';
 import DataVerifier from '../components/DataVerifier.vue';
@@ -75,6 +89,8 @@ export default {
         userRole: null,
 
         seeUserAddress: false,
+        showAlertSuccessLoad: false,
+        showAlertErrorLoad: false,
       };
     },
 
@@ -82,6 +98,8 @@ export default {
         ...mapGetters(['ethBalance']),
         ...mapGetters(['isAdmin']),
         ...mapGetters(['isVerifier']),
+
+        ...mapGetters(['isClosed']),
 
         formattedEthBalance() {
             return Number(this.ethBalance)
@@ -97,6 +115,11 @@ export default {
         this.contractAddress = this.$store.state.contractAddress
         this.userAddress = this.$store.state.userAddress
         this.userRole = this.$store.state.userRole
+
+        // manage the event showAlertSuccessLoad
+        eventBus.on('showAlertSuccessLoad', () => {
+            this.showAlertSuccessLoad = true
+        });
     },
   
     methods: {
@@ -107,6 +130,13 @@ export default {
             this.ethBalance = null
             this.userRole = null
             this.$store.commit('SET_USER_ADDRESS', this.userAddress);
+        },
+
+        closeAlertSuccess() {
+            this.showAlertSuccessLoad = false
+        },
+        closeAlertError() {
+            this.showAlertErrorLoad = false
         },
     },
   

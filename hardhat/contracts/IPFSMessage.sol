@@ -20,24 +20,24 @@ contract IPFSMessage {
 
     // Mappature per memorizzare i dati degli utenti e dei verificatori
     mapping(address => uint256) public userPayments;
-    mapping(bytes32 => string) public encryptedData;
-    mapping(bytes32 => address) public dataOwners;
-    mapping(bytes32 => bool) public dataVerified;
+    mapping(string => string) public encryptedData;
+    mapping(string => address) public dataOwners;
+    mapping(string => bool) public dataVerified;
 
     // Lista degli hash caricati
-    bytes32[] public uploadedHashes;
+    string[] public uploadedHashes;
 
     // Parametri della campagna e tariffe
     uint256 public uploadFee = 0.1 ether; // Tariffa di caricamento dati
-    uint256 public minimumParticipants = 5; // Numero minimo di partecipazioni per chiudere la campagna
+    uint256 public minimumParticipants = 10; // Numero minimo di partecipazioni per chiudere la campagna
     uint256 public verifiedCount = 0;
 
     // Stato della campagna
     string public campaignStatus = "Ongoing";
 
     // Eventi per tracciare l'upload e la verifica
-    event DataUploaded(address indexed user, bytes32 ipfsHash);
-    event DataVerified(bytes32 ipfsHash, bool isValid);
+    event DataUploaded(address indexed user, string ipfsHash);
+    event DataVerified(string ipfsHash, bool isValid);
     event CampaignClosed(string status);
 
 
@@ -77,7 +77,7 @@ contract IPFSMessage {
 
 
     // Funzione per caricare i dati su IPFS
-    function uploadData(bytes32 ipfsHash, string memory encryptionKey) public payable {
+    function uploadData(string memory ipfsHash, string memory encryptionKey) public payable {
         require(msg.value == uploadFee, "Please pay the correct upload fee");
         require(bytes(encryptedData[ipfsHash]).length == 0, "Data already uploaded");
 
@@ -90,14 +90,14 @@ contract IPFSMessage {
     }
 
     // Funzione per ottenere tutti i dati caricati
-    function getAllData() public view returns (bytes32[] memory, address[] memory, bool[] memory) {
+    function getAllData() public view returns (string[] memory, address[] memory, bool[] memory) {
         uint256 total = uploadedHashes.length;
 
         address[] memory owners = new address[](total);
         bool[] memory verified = new bool[](total);
 
         for (uint256 i = 0; i < total; i++) {
-            bytes32 hash = uploadedHashes[i];
+            string memory hash = uploadedHashes[i];
             owners[i] = dataOwners[hash];
             verified[i] = dataVerified[hash];
         }
@@ -106,12 +106,40 @@ contract IPFSMessage {
     }
 
     // Funzione per ottenere la chiave di cifratura di un dato
-    function getData(bytes32 ipfsHash) public view returns (string memory) {
+    function getEncryptedKey(string memory ipfsHash) public view returns (string memory) {
         return encryptedData[ipfsHash];
     }
 
+    // Funzione per ottenere gli Hash dei dati da validare
+    function getUnverifiedData() public view returns (string[] memory) {
+        uint256 count = 0;
+        
+        // Conta quanti dati non sono stati verificati
+        for (uint256 i = 0; i < uploadedHashes.length; i++) {
+            if (!dataVerified[uploadedHashes[i]]) {
+                count++;
+            }
+        }
+
+        // Crea un array della dimensione giusta
+        string[] memory unverifiedHashes = new string[](count);
+        uint256 index = 0;
+
+        // Riempie l'array con gli hash non verificati
+        for (uint256 i = 0; i < uploadedHashes.length; i++) {
+            if (!dataVerified[uploadedHashes[i]]) {
+                unverifiedHashes[index] = uploadedHashes[i];
+                index++;
+            }
+        }
+
+        return unverifiedHashes;
+    }
+
+
     // Funzione per la verifica dei dati da parte dei verificatori
-    function verifyData(bytes32 ipfsHash, string memory encryptionKey) public {
+    // Controlla se raggiunto il numero minimo di dati verificati: se sì, Chiusura campagna
+    function verifyData(string memory ipfsHash, string memory encryptionKey) public {
         // Verifica che l'utente sia un verificatore
         require(users[msg.sender].role == Role.Verifier, "Only verifiers can verify data");
 

@@ -51,6 +51,38 @@ html, body {
     display: inline-block;
 }
 
+.custom-btn {
+    display: inline-block;
+    border: 1px solid #0d442b;
+    border-radius: 3px;        
+    cursor: pointer;           
+    background-color: transparent; 
+    transition: background-color 0.3s, color 0.3s; 
+}
+.custom-btn:hover {
+    background-color: #0d442b;  
+    color: white;              
+}
+.custom-btn input[type="file"] {
+    display: none; /* Nascondi il vero input file */
+}
+
+.custom-btn-2 {
+    display: inline-block;
+    border: 1px solid darkred;
+    border-radius: 3px;        
+    cursor: pointer;           
+    background-color: transparent; 
+    transition: background-color 0.3s, color 0.3s; 
+}
+.custom-btn-2:hover {
+    background-color: darkred;  
+    color: white;              
+}
+.custom-btn-2 input[type="file"] {
+    display: none; /* Nascondi il vero input file */
+}
+
 .styleLink {
     text-decoration: none;
 }

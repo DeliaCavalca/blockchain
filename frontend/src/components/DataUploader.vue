@@ -1,31 +1,26 @@
 <template>
   <div style="font-size: 13px; text-align: left;">
     
+    <p class="m-0 p-0">Quota richiesta per l'upload: <span><strong>{{ ethToPay }} ETH</strong></span></p>
+    <p class="m-0 p-0 mb-4">Tale quantità ti verrà restituita non appena i tuoi dati saranno stati validati.</p>
+
+
     <p v-if="!selectedFileName" class="m-0 p-0">Seleziona il tuo file <span><strong>.txt </strong></span>:</p>
     <p v-else class="m-0 p-0">File selezionato: <span><strong>{{ selectedFileName }}</strong></span></p>
 
 
     <div class="">
-      <label class="p-1 mt-1 custom-file-upload">
+      <label class="p-1 mt-1 custom-btn" :class="{ 'disabled-label': isClosed }">
         <span>Scegli file</span>
-        <input class="selectfileBtn" type="file" @change="onFileChange">
+        <input class="selectfileBtn" type="file" @change="onFileChange" :disabled="isClosed" />
       </label>
     </div>
-
+    
     <div class="mt-5">
-      <input v-model="encryptionKey" placeholder="Encryption Key">
-      <button class="mt-2 p-1" @click="generateKey">Generate Key</button>
-    </div>
+      <p class="m-0 p-0">Carica i tuoi dati sulla piattaforma!</p>
+      <p class="m-0 p-0">I tuoi dati verranno criptati per garantire la tua privacy.</p>
 
-    <div class="mt-2">
-      <button @click="uploadToIpfs">Upload to IPFS</button>
-      <p v-if="ipfsHash">IPFS Hash: {{ ipfsHash }}</p>
-      <button @click="uploadData" :disabled="!ipfsHash || !encryptionKey">Upload Data to Blockchain</button>
-      <p>{{ message }}</p>
-    </div>
-
-    <div class="mt-5">
-      <button class="btn uploadBtn mt-2 p-1" >Carica Dati</button>
+      <button class="btn uploadBtn mt-2 p-1" :disabled="!file" @click="encryptAndLoadData">Carica Dati</button>
     </div>
 
   </div>
@@ -35,6 +30,8 @@
 import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
 import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
+import eventBus from '@/eventBus';
+import { mapGetters } from 'vuex'
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 
@@ -48,8 +45,9 @@ export default {
       selectedFileName: null,
       ipfsHash: "",
       encryptionKey: "",
-      message: "",
       contract: null,
+
+      ethToPay: "0.1",
 
     };
   },
@@ -57,6 +55,10 @@ export default {
   created() {
     this.contractAddress = this.$store.state.contractAddress
     this.userAddress = this.$store.state.userAddress
+  },
+
+  computed: {
+    ...mapGetters(['isClosed']),
   },
 
 
@@ -90,26 +92,34 @@ export default {
         }
 
         console.log("Uploading file to IPFS...");
+
+        // Caricamento dati su IPFS
         const added = await client.add(this.file);
+        // IPFS Hash (CID): posizione in cui sono stati salvati i dati
         this.ipfsHash = added.path; // Salva l'hash IPFS del file caricato
+
         console.log("File uploaded to IPFS with hash:", this.ipfsHash);
         
       } catch (error) {
-        this.message = "Error uploading file to IPFS.";
+
+        // emit event
+        eventBus.emit('showAlertErrorLoad');
+
         console.error("Error uploading file to IPFS:", error);
       }
     },
 
     // Converti la stringa hash IPFS in bytes32
+    /*
     ipfsHashToBytes32(ipfsHash) {
       return ethers.utils.id(ipfsHash);
-    },
+    },*/
 
-    // Carica i dati sulla blockchain
-    async uploadData() {
-      if (!this.ipfsHash || !this.encryptionKey) {
-        this.message = "IPFS hash and encryption key are required.";
-        console.log(this.message);
+
+    // Comunica allo Smart Contract la posizone dei dati su IPFS
+    async sendCIDToContract() {
+      if (!this.ipfsHash) {
+        console.log("ERRORE nel caricamento dei dati su SC");
         return;
       }
 
@@ -127,11 +137,12 @@ export default {
         console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
 
 
-        console.log("Uploading data to blockchain...");
-        const ipfsHashBytes32 = this.ipfsHashToBytes32(this.ipfsHash);
-        const tx = await contractWithSigner.uploadData(ipfsHashBytes32, this.encryptionKey, {
-          value: ethers.utils.parseEther("0.1")
+        console.log("Sending CID to blockchain...");
+        //const ipfsHashBytes32 = this.ipfsHashToBytes32(this.ipfsHash);
+        const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
+          value: ethers.utils.parseEther(this.ethToPay)
         });
+
         console.log("Transaction sent:", tx);
         this.message = `Transaction sent: ${tx.hash}`;
         console.log("Transaction hash:", tx.hash);
@@ -142,13 +153,43 @@ export default {
         console.log(`Final Balance: ${finalEthBalance} ETH`);
         this.$store.commit('SET_ETH_BALANCE', finalEthBalance);
 
-        console.log("DATA UPLOADED SUCCESSFULLY");
+        console.log("CID SENT SUCCESSFULLY");
+
+        // emit event
+        eventBus.emit('showAlertSuccessLoad');
+
+        this.file = null
+        this.selectedFileName = null
+        this.encryptionKey = ""
+        this.contract = null
         
       } catch (error) {
         console.error("Error connecting to Ethereum provider:", error);
+        
+        // emit event
+        eventBus.emit('showAlertErrorLoad');
+
         return;
       }
       
+    },
+
+    // Codifica i dati dell'utente e li carica su IPFS
+    async encryptAndLoadData() {
+      // notifica lo SC
+      
+      // lo SC condivide una chiave per cifrare i dati + dimensione dei blocchi
+      this.generateKey()
+
+      // codifica dei dati
+
+      // caricamento dati su IPFS (dati suddivisi in blocchi)
+      await this.uploadToIpfs()
+      
+      // comunicare allo SC la posizione dei dati su IPFS (CID)
+      // pagamento della quota
+      await this.sendCIDToContract(this.ipfsHash)
+
     }
   }
 };
@@ -156,21 +197,12 @@ export default {
 
 <style scoped>
 
-.custom-file-upload {
-  display: inline-block;
-  border: 1px solid #0d442b;
-  border-radius: 3px;        
-  cursor: pointer;           
-  background-color: transparent; 
-  transition: background-color 0.3s, color 0.3s; 
+
+.disabled-label {
+  opacity: 0.7;
+  pointer-events: none; /* Impedisce il click */
 }
-.custom-file-upload:hover {
-  background-color: #0d442b;  
-  color: white;              
-}
-.custom-file-upload input[type="file"] {
-  display: none; /* Nascondi il vero input file */
-}
+
 
 .uploadBtn {
   display: block;

@@ -106,11 +106,16 @@ export default {
             roleString = "Admin"
           }
           
+          // Ottieni lo Stato della campagna
+          const status = await contract.getCampaignStatus();
+          console.log("Stato della campagna: ", status);
+          
           console.log("Connesso con l'indirizzo:", this.userAddress);
 
           this.$store.commit('SET_USER_ADDRESS', this.userAddress);
           this.$store.commit('SET_USER_ROLE', roleString);
           this.$store.commit('SET_ETH_BALANCE', ethBalance);
+          this.$store.commit('SET_STATUS', status);
                    
         } catch (error) {
           console.error("Errore durante la connessione:", error);
