@@ -139,10 +139,15 @@ export default {
         contractWithSigner = contract.connect(signer);
 
         const initialBalance = await provider.getBalance(this.userAddress);
-        console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
+        console.log(`Initial Balance of User: ${ethers.utils.formatEther(initialBalance)} ETH`);
 
+        const initBalanceContratc = await contractWithSigner.getContractBalance();
+        const initBalanceContratcStr = ethers.utils.formatEther(initBalanceContratc);
+        console.log("FONDI del Contratto PRIMA della Validazione:", initBalanceContratcStr);
 
         // Valida il File
+        // Rimborso al'utente che ha caricato i dati
+        // Ricompensa al verficatore
         const tx = await contractWithSigner.verifyData(hash, key);
         console.log("Transaction hash:", tx.hash);
         await tx.wait();
@@ -156,8 +161,12 @@ export default {
         */
         const finalBalance = await provider.getBalance(this.userAddress);
         const finalEthBalance = ethers.utils.formatEther(finalBalance); // Converte il saldo in ETH
-        console.log(`Final Balance: ${finalEthBalance} ETH`);
+        console.log(`Final Balance of User: ${finalEthBalance} ETH`);
         this.$store.commit('SET_ETH_BALANCE', finalEthBalance);
+
+        const finalBalanceContratc = await contractWithSigner.getContractBalance();
+        const finalBalanceContratcStr = ethers.utils.formatEther(finalBalanceContratc);
+        console.log("FONDI del Contratto DOPO la Validazione:", finalBalanceContratcStr);
 
 
         // Ottieni e Aggiorna lo Stato della campagna

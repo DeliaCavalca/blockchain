@@ -15,9 +15,13 @@ async function main() {
 
     // Get the contract factory for the 'IPFSMessage' contract
     const IPFSMessage = await ethers.getContractFactory("IPFSMessage");
-    // Deploy the contract to the network
-    const ipfsMessage = await IPFSMessage.deploy(accounts_address);
+    // Deploy the contract to the network: deploy with 10 ETH
+    const ipfsMessage = await IPFSMessage.deploy(accounts_address, {
+        value: ethers.parseEther("10")
+    });
 
+    await ipfsMessage.waitForDeployment();
+    
     // Address of the contract
     console.log("Contract deployed to:", ipfsMessage.target);
 }
