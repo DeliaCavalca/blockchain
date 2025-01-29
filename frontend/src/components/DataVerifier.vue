@@ -1,126 +1,195 @@
 <template>
-  <div>
-    <h1>Verify Data on Blockchain</h1>
-    <input v-model="ipfsHash" placeholder="IPFS Hash">
-    <input v-model="encryptionKey" placeholder="Encryption Key">
-    <button @click="verifyAndCheckBalance">Verify</button>
-    <p>{{ message }}</p>
+  <div style="font-size: 13px; text-align: left;">
+    
+    <p v-if="fileToVerifyList.length > 0" class="m-0 p-0 mb-3">File da validare:</p>
+    <p v-else class="m-0 p-0">Nessun file da validare.</p>
+
+    <div v-for="(file, index) in fileToVerifyList" :key="file.hash" class="file-item">
+      <span><strong>File {{ index + 1 }}</strong></span>
+      <a :href="file.url" target="_blank">Vedi File</a>
+      <button class="custom-btn" @click="validateFile(file.hash)">Valida</button>
+      <button class="custom-btn-2" @click="deleteFile(file.hash)">Elimina</button>
+    </div>
+
   </div>
 </template>
 
 <script>
+import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
 import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
+import eventBus from '@/eventBus';
+
+const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 
 export default {
   data() {
     return {
+      contractAddress: null, // Indirizzo del Contratto
+      userAddress: null, // Indirizzo dell'utente Ethereum
+
       ipfsHash: "",
       encryptionKey: "",
-      message: "",
-      contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3" // Indirizzo del contratto sulla blockchain
+      hashToVerifyList: [],
+      fileToVerifyList: [],
     };
   },
+
+  created() {
+    this.contractAddress = this.$store.state.contractAddress
+    this.userAddress = this.$store.state.userAddress
+
+    this.getUnverifiedFile();
+
+    // manage the event showAlertSuccessLoad
+    eventBus.on('showAlertSuccessLoad', () => {
+      this.getUnverifiedFile();
+    });
+  },
+
   methods: {
+
     // Converti la stringa hash IPFS in bytes32
+    /*
     ipfsHashToBytes32(ipfsHash) {
       return ethers.utils.id(ipfsHash);
+    },*/
+
+    // Ottenere l'elenco di hash da verificare dallo SC
+    async getUnverifiedHash() {
+      let provider, contract;
+
+      try {
+        provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+        contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+        
+        // Ottieni gli hash in formato bytes32
+        const unverifiedHashes = await contract.getUnverifiedData();
+        console.log("Unverified IPFS Hashes:", unverifiedHashes.length);
+
+        this.hashToVerifyList = unverifiedHashes;
+        
+        return;
+      } catch (error) {
+        console.error("Error fetching unverified hashes:", error);
+        return;
+      }
     },
-    // Verifica i dati sulla blockchain e controlla il saldo
-    async verifyAndCheckBalance() {
-      if (!this.ipfsHash || !this.encryptionKey) {
-        this.message = "IPFS hash and encryption key are required.";
-        console.log(this.message);
+
+    // Ottenere l'elenco di file da verificare da IPFS
+    async getUnverifiedFile() {
+      await this.getUnverifiedHash()
+
+      if (this.hashToVerifyList.length === 0) {
+        console.log("Nessun file da validare");
         return;
       }
 
+      const files = await Promise.all(
+        this.hashToVerifyList.map(async (ipfsHash) => {
+            try {
+
+              // Recupera il file da IPFS, usando il CID
+              const stream = client.cat(ipfsHash);
+              
+              let data = new Uint8Array();
+              for await (const chunk of stream) {
+                data = new Uint8Array([...data, ...chunk]); // Concatena i chunk ricevuti
+              }
+              
+              const blob = new Blob([data]);
+              return { hash: ipfsHash, url: URL.createObjectURL(blob) };
+
+            } catch (error) {
+                console.error(`Errore nel download del file IPFS con hash ${ipfsHash}:`, error);
+                return null;
+            }
+        })
+      );
+
+      this.fileToVerifyList = files.filter(file => file !== null);
+      return;
+
+    },
+
+
+    // Valida un file
+    async validateFile(hash) {
+      if(!hash) {
+        console.log("Errore durante la validazione. Hash non valido.");
+        return;
+      }
+
+      // Validare il file
       let provider, contract, signer, contractWithSigner;
 
       try {
-        console.log("Connecting to Ethereum provider...");
         provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
-        console.log("Provider connected.");
+        contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+
+        // Ottieni la Chiave
+        const key = await contract.getEncryptedKey(hash);
+
+        if(!key) {
+          console.log("Errore durante la validazione. Key non valida.");
+          return;
+        }
+
+        signer = provider.getSigner(this.userAddress);
+        contractWithSigner = contract.connect(signer);
+
+        const initialBalance = await provider.getBalance(this.userAddress);
+        console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
+
+
+        // Valida il File
+        const tx = await contractWithSigner.verifyData(hash, key);
+        console.log("Transaction hash:", tx.hash);
+        await tx.wait();
+
+        console.log("DATA VERIFIED SUCCESSFULLY!");
+
+        // Controlla e Aggiorna il Balance dell'utente
+        /**  
+         * TODO: viene aggiornato/ottenuto il saldo di user che crea la transazione o del verifier??
+        
+        */
+        const finalBalance = await provider.getBalance(this.userAddress);
+        const finalEthBalance = ethers.utils.formatEther(finalBalance); // Converte il saldo in ETH
+        console.log(`Final Balance: ${finalEthBalance} ETH`);
+        this.$store.commit('SET_ETH_BALANCE', finalEthBalance);
+
+
+        // Ottieni e Aggiorna lo Stato della campagna
+        const status = await contractWithSigner.getCampaignStatus();
+        console.log("Stato della campagna: ", status);
+        this.$store.commit('SET_STATUS', status);
+
+        // Aggiorna la lista dei file da validare
+        this.getUnverifiedFile();
+
       } catch (error) {
-        this.message = "Error connecting to Ethereum provider.";
         console.error("Error connecting to Ethereum provider:", error);
         return;
       }
 
-      try {
-        console.log("Getting contract instance...");
-        contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
-        console.log("Contract instance obtained.");
-      } catch (error) {
-        this.message = "Error getting contract instance.";
-        console.error("Error getting contract instance:", error);
-        return;
-      }
-
-      try {
-        console.log("Getting signer...");
-        signer = provider.getSigner(0);
-        console.log("Signer obtained. Address:", await signer.getAddress());
-      } catch (error) {
-        this.message = "Error getting signer.";
-        console.error("Error getting signer:", error);
-        return;
-      }
-
-      try {
-        console.log("Connecting contract with signer...");
-        contractWithSigner = contract.connect(signer);
-        console.log("Contract connected with signer.");
-      } catch (error) {
-        this.message = "Error connecting contract with signer.";
-        console.error("Error connecting contract with signer:", error);
-        return;
-      }
-
-      try {
-        const userAddress = await signer.getAddress();
-        const initialBalance = await provider.getBalance(userAddress);
-        console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
-
-        console.log("Verifying data on blockchain...");
-        const ipfsHashBytes32 = this.ipfsHashToBytes32(this.ipfsHash);
-        const tx = await contractWithSigner.verifyData(ipfsHashBytes32, this.encryptionKey);
-        console.log("Transaction sent:", tx.hash);
-        this.message = `Transaction sent: ${tx.hash}`;
-        console.log("Transaction hash:", tx.hash);
-        await tx.wait();
-        console.log("Data verified successfully!");
-
-        const finalBalance = await provider.getBalance(userAddress);
-        console.log(`Final Balance: ${ethers.utils.formatEther(finalBalance)} ETH`);
-
-        this.message = `Data verified successfully! \nInitial Balance: ${ethers.utils.formatEther(initialBalance)} ETH\nFinal Balance: ${ethers.utils.formatEther(finalBalance)} ETH`;
-      } catch (error) {
-        this.message = "Error verifying data on blockchain.";
-        console.error("Error verifying data on blockchain:", error);
-      }
     }
+
+
   }
 };
 </script>
 
-<style>
-/* Stili per il componente */
-input[type="text"],
-button {
-  display: block;
-  margin: 10px 0;
+<style scoped>
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Distanza tra gli elementi */
+  margin-top: 5px;
+}
+.file-item:hover {
+  background-color: rgb(238, 235, 235);
 }
 
-button {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
 </style>
