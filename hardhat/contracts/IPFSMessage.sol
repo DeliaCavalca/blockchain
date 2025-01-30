@@ -22,7 +22,7 @@ contract IPFSMessage {
     mapping(string => mapping(address => uint256)) public filePayments;
     mapping(string => string) public encryptedData;
     mapping(string => address) public dataOwners;
-    mapping(string => bool) public dataVerified;
+    mapping(string => bool) public dataVerified; // true se il dato è valido, false se non è valido
 
     // Lista degli hash caricati
     string[] public uploadedHashes;
@@ -31,7 +31,7 @@ contract IPFSMessage {
     uint256 public uploadFee = 0.1 ether; // Tariffa di caricamento dati
     uint256 public verifyFee = 1.0 ether; // Tariffa di ricompensa validazione dati al Verificatore
     uint256 public minimumParticipants = 10; // Numero minimo di partecipazioni per chiudere la campagna
-    uint256 public verifiedCount = 0;
+    uint256 public verifiedCount = 0; // Numero di dati validatati (dati validi)
 
     // Stato della campagna
     string public campaignStatus = "Ongoing";
@@ -166,6 +166,7 @@ contract IPFSMessage {
                 closeCampaign();
             }
         } else {
+            dataVerified[ipfsHash] = false;
             emit DataVerified(ipfsHash, false);
         }
     }
