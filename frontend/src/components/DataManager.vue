@@ -9,6 +9,7 @@
 <script>
   
 export default {
+    name: 'DataManager',
     data() {
       return {
         contractAddress: null, // Indirizzo del Contratto
@@ -19,7 +20,8 @@ export default {
     },
   
     created() {
-      
+        this.contractAddress = this.$store.state.contractAddress
+        this.userAddress = this.$store.state.userAddress
     },
   
     methods: {
@@ -29,6 +31,6 @@ export default {
 </script>
   
 <style scoped>
-  
+
   
 </style>
