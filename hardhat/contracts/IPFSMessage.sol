@@ -19,18 +19,19 @@ contract IPFSMessage {
 
 
     // Mappature per memorizzare i dati degli utenti e dei verificatori
-    mapping(address => uint256) public userPayments;
+    mapping(string => mapping(address => uint256)) public filePayments;
     mapping(string => string) public encryptedData;
     mapping(string => address) public dataOwners;
-    mapping(string => bool) public dataVerified;
+    mapping(string => bool) public dataVerified; // true se il dato è valido, false se non è valido
 
     // Lista degli hash caricati
     string[] public uploadedHashes;
 
     // Parametri della campagna e tariffe
     uint256 public uploadFee = 0.1 ether; // Tariffa di caricamento dati
+    uint256 public verifyFee = 1.0 ether; // Tariffa di ricompensa validazione dati al Verificatore
     uint256 public minimumParticipants = 10; // Numero minimo di partecipazioni per chiudere la campagna
-    uint256 public verifiedCount = 0;
+    uint256 public verifiedCount = 0; // Numero di dati validatati (dati validi)
 
     // Stato della campagna
     string public campaignStatus = "Ongoing";
@@ -43,7 +44,9 @@ contract IPFSMessage {
 
     // Metodo eseguito quando viene fatto il deploy del contratto
     // Assegna i ruoli agli account generati da Hardhat
-    constructor(address[] memory _accounts) {
+    // Imposta il fondo iniziale del contratto
+    constructor(address[] memory _accounts) payable {
+        require(msg.value == 10 ether, "Contract must be deployed with 10 ETH");
         
         // Admin
         users[_accounts[0]] = User({ role: Role.Admin });
@@ -83,7 +86,7 @@ contract IPFSMessage {
 
         encryptedData[ipfsHash] = encryptionKey; // Salva la chiave di cifratura
         dataOwners[ipfsHash] = msg.sender; // Memorizza chi è il proprietario dei dati
-        userPayments[msg.sender] += msg.value;
+        filePayments[ipfsHash][msg.sender] += msg.value; // Associa l'importo specifico al file
 
         uploadedHashes.push(ipfsHash); // Aggiunge l'hash alla lista
         emit DataUploaded(msg.sender, ipfsHash);
@@ -148,18 +151,22 @@ contract IPFSMessage {
         // Simulazione della verifica dei dati: il verificatore deve fornire la chiave corretta
         bool isValid = keccak256(abi.encodePacked(encryptionKey)) == keccak256(abi.encodePacked(encryptedData[ipfsHash]));
 
+        // Ricompensa al verificatore
+        rewardVerifier(msg.sender);
+
         if (isValid) {
             dataVerified[ipfsHash] = true;
             verifiedCount++;
             emit DataVerified(ipfsHash, true);
             
-            // Rimborso immediato dell'utente
-            rewardUser(dataOwners[ipfsHash]);
+            // Rimborso dell'utente che ha effettuato il caricamento dati
+            rewardUser(dataOwners[ipfsHash], ipfsHash);
 
             if (verifiedCount >= minimumParticipants) {
                 closeCampaign();
             }
         } else {
+            dataVerified[ipfsHash] = false;
             emit DataVerified(ipfsHash, false);
         }
     }
@@ -171,11 +178,30 @@ contract IPFSMessage {
     }
 
     // Funzione per premiare l'utente che ha caricato i dati verificati
-    function rewardUser(address user) private {
-        uint256 amount = userPayments[user];
+    function rewardUser(address user, string memory ipfsHash) private {
+        // Verifica se a tale utente spetta un rimborso per tale file
+        uint256 amount = filePayments[ipfsHash][user];
         require(amount > 0, "No funds to reward");
-        userPayments[user] = 0; // Resetta il pagamento prima del trasferimento per sicurezza
-        payable(user).transfer(amount); // Rimborsa l'utente
+        filePayments[ipfsHash][user] = 0; // Resetta il pagamento prima del trasferimento per sicurezza
+
+        // Rimborso dell'utente
+        payable(user).transfer(amount);
+    }
+
+    // Funzione per premiare il verificatore in seguito alla validazione di un dato
+    function rewardVerifier(address verifier) private {
+        // Verifica che sia un Verificatore
+        require(users[verifier].role == Role.Verifier, "Only verifiers can be rewarded for Validation Data");
+        // Verifica che il contratto abbia abbastanza Ether per pagare la ricompensa
+        require(address(this).balance >= verifyFee, "Not enough balance in contract to reward verifier");
+
+        // Trasferimento della ricompensa al Verificatore
+        payable(verifier).transfer(verifyFee);
+    }
+
+    // Restituisce i fondi del contratto
+    function getContractBalance() public view returns (uint256) {
+        return address(this).balance;
     }
 
     // Funzione per ottenere lo stato della campagna
