@@ -22,7 +22,8 @@ contract IPFSMessage {
     mapping(string => mapping(address => uint256)) public filePayments;
     mapping(string => string) public encryptedData;
     mapping(string => address) public dataOwners;
-    mapping(string => bool) public dataVerified; // true se il dato è valido, false se non è valido
+    mapping(string => bool) public dataVerified; // true se il dato è valido, false se non è ancora stato validato o se non è valido
+    mapping(string => bool) public dataVerifiedNotValid; // true se il dato è stato verificato e non è valido
 
     // Lista degli hash caricati
     string[] public uploadedHashes;
@@ -119,7 +120,7 @@ contract IPFSMessage {
         
         // Conta quanti dati non sono stati verificati
         for (uint256 i = 0; i < uploadedHashes.length; i++) {
-            if (!dataVerified[uploadedHashes[i]]) {
+            if (!dataVerified[uploadedHashes[i]] && !dataVerifiedNotValid[uploadedHashes[i]]) {
                 count++;
             }
         }
@@ -130,7 +131,7 @@ contract IPFSMessage {
 
         // Riempie l'array con gli hash non verificati
         for (uint256 i = 0; i < uploadedHashes.length; i++) {
-            if (!dataVerified[uploadedHashes[i]]) {
+            if (!dataVerified[uploadedHashes[i]] && !dataVerifiedNotValid[uploadedHashes[i]]) {
                 unverifiedHashes[index] = uploadedHashes[i];
                 index++;
             }
@@ -142,19 +143,22 @@ contract IPFSMessage {
 
     // Funzione per la verifica dei dati da parte dei verificatori
     // Controlla se raggiunto il numero minimo di dati verificati: se sì, Chiusura campagna
-    function verifyData(string memory ipfsHash, string memory encryptionKey) public {
+    function verifyData(string memory ipfsHash, string memory encryptionKey, bool validationResult) public {
+        
         // Verifica che l'utente sia un verificatore
         require(users[msg.sender].role == Role.Verifier, "Only verifiers can verify data");
 
         require(bytes(encryptedData[ipfsHash]).length != 0, "Data not found");
         
-        // Simulazione della verifica dei dati: il verificatore deve fornire la chiave corretta
+        // Verifica se il verificatore ha fornito la chiave corretta
         bool isValid = keccak256(abi.encodePacked(encryptionKey)) == keccak256(abi.encodePacked(encryptedData[ipfsHash]));
+
+        // validationResult = risultato della validazione del contenuto del file
 
         // Ricompensa al verificatore
         rewardVerifier(msg.sender);
 
-        if (isValid) {
+        if (isValid && validationResult) {
             dataVerified[ipfsHash] = true;
             verifiedCount++;
             emit DataVerified(ipfsHash, true);
@@ -167,6 +171,7 @@ contract IPFSMessage {
             }
         } else {
             dataVerified[ipfsHash] = false;
+            dataVerifiedNotValid[ipfsHash] = true;
             emit DataVerified(ipfsHash, false);
         }
     }

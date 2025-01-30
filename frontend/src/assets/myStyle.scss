@@ -66,6 +66,18 @@ html, body {
 .custom-btn input[type="file"] {
     display: none; /* Nascondi il vero input file */
 }
+/* Annulla l'effetto hover per i bottoni disabilitati */
+.custom-btn:disabled {
+    cursor: not-allowed;  /* Mostra un cursore di tipo 'non consentito' */
+    background-color: transparent;  /* Non cambia il colore di sfondo */
+    color: #ccc; /* Imposta il colore del testo come grigio chiaro per indicare che è disabilitato */
+}
+
+/* Disabilita l'effetto hover anche sui bottoni disabilitati */
+.custom-btn:disabled:hover {
+    background-color: transparent;  /* Mantiene lo sfondo trasparente */
+    color: #ccc;  /* Mantiene il colore del testo disabilitato */
+}
 
 .custom-btn-2 {
     display: inline-block;

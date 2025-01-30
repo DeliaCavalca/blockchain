@@ -4,11 +4,14 @@
     <p v-if="fileToVerifyList.length > 0" class="m-0 p-0 mb-3">File da validare:</p>
     <p v-else class="m-0 p-0">Nessun file da validare.</p>
 
-    <div v-for="(file, index) in fileToVerifyList" :key="file.hash" class="file-item">
-      <span><strong>File {{ index + 1 }}</strong></span>
-      <a :href="file.url" target="_blank">Vedi File</a>
-      <button class="custom-btn" @click="validateFile(file.hash)">Valida</button>
-      <button class="custom-btn-2" @click="deleteFile(file.hash)">Elimina</button>
+    <div v-for="(file, index) in fileToVerifyList" :key="file.hash">
+      <div class="file-item mt-3">
+        <span><strong>File {{ index + 1 }}</strong></span>
+        <a :href="processedFileUrl" @click.prevent="prepareDownload(file)" target="_blank">Vedi File</a>
+        <button class="custom-btn" @click="validateFile(file.hash, true)" :disabled="file.validationError != ''">Valida</button>
+        <button class="custom-btn-2" @click="validateFile(file.hash, false)">Scarta</button>
+      </div>
+      <p v-if="file.validationError != ''" class="m-0 p-0" style="color: darkred; font-weight: bold; font-size: 12px;">{{ file.validationError }}</p>
     </div>
 
   </div>
@@ -33,6 +36,7 @@ export default {
       encryptionKey: "",
       hashToVerifyList: [],
       fileToVerifyList: [],
+      processedFileUrl: null,
     };
   },
 
@@ -49,12 +53,6 @@ export default {
   },
 
   methods: {
-
-    // Converti la stringa hash IPFS in bytes32
-    /*
-    ipfsHashToBytes32(ipfsHash) {
-      return ethers.utils.id(ipfsHash);
-    },*/
 
     // Ottenere l'elenco di hash da verificare dallo SC
     async getUnverifiedHash() {
@@ -108,7 +106,7 @@ export default {
 
               // Converti il Uint8Array in una stringa
               const fileContent = new TextDecoder().decode(data);
-              console.log(`Contenuto del file (${ipfsHash}):`, fileContent);
+              console.log(`Contenuto del file PRIMA di DECRIPT (${ipfsHash}):`, fileContent);
 
               const decryptedData = this.decryptFile(fileContent, encryptedKey);
               
@@ -123,6 +121,8 @@ export default {
       );
 
       this.fileToVerifyList = files.filter(file => file !== null);
+      await this.validateGeoDataForAllFiles();  // Esegui la validazione per ogni file caricato
+
       return;
 
     }
@@ -137,7 +137,7 @@ export default {
     decryptFile(encryptedBase64, key) {
       try {
 
-        console.log("Chiave passata:",key);
+        console.log("Chiave passata:", key);
         // Decripta usando AES e la chiave fornita
         const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
 
@@ -177,8 +177,168 @@ export default {
     },
 
 
+    // Funzione per validare in automatico tutti i file caricati
+    async validateGeoDataForAllFiles() {
+      this.fileToVerifyList.forEach(async file => {
+        
+        const validationResult = await this.validateGeoData(file);
+
+        if (validationResult) {
+          file.validationError = '';  // Se valido, rimuovi eventuali errori
+        } else {
+          file.validationError = 'Attenzione! Il contenuto del file non è valido.'
+        }
+      });
+    },
+
+    // Recupera il contenuto del file e trasforma in Json corretto
+    async getFileContent(file) {
+      
+      try {
+        // Recupera il contenuto del file dal Blob URL
+        const response = await fetch(file.url);
+        const fileText  = await response.text();
+
+        // Il contenuto può presentare caratteri speciali alla file
+        //console.log("Contenuto del file:", fileText);
+
+        // Elimina eventuali caratteri extra (se presenti)
+        const cleanFileText = fileText.split('')
+          .filter(c => c.charCodeAt(0) >= 32 || c.charCodeAt(0) === 9) // Mantiene solo caratteri visibili e tabulazione
+          .join('');
+
+        // Parsing in Json
+        try {
+          const parsedData = JSON.parse(cleanFileText);
+          return parsedData;
+        } catch (error) {
+          console.error("Errore durante il parsing del file JSON:", error);
+          return null;
+        }
+      } catch (error) {
+        console.error("Errore nel leggere il contenuto del file:", error);
+        return null;
+      }
+
+    },
+
+    // Verifica se il file è valido
+    async validateGeoData(file) {
+      try {
+        // Recupera il contenuto del file
+        let fileContent = await this.getFileContent(file);
+        
+        // Verifica se presente il campo "data"
+        if (fileContent && Array.isArray(fileContent.data)) {
+          // Passa l'array 'data' alla funzione di validazione
+          const validationResult = this.validateGeoDataFormat(fileContent.data); // Passa l'array "data" alla funzione di validazione
+
+          if (!validationResult.isValid) {
+            console.log("Errore di validazione:", validationResult.message);
+            return false
+          } else {
+            console.log("I dati sono validi.");
+            return true
+          }
+        } else {
+          console.error("Il campo 'data' non è presente o non è un array.");
+          return false
+        }
+
+      } catch (error) {
+        console.error("Errore nel leggere il contenuto del file:", error);
+        return false
+      }
+    },
+
+    // Funzione per preparazione del file al download
+    async prepareDownload(file) {
+      const cleanedData = await this.getFileContent(file);
+      if (!cleanedData) {
+        alert("Errore nella pulizia del file!");
+        return;
+      }
+
+      // Converti i dati in stringa JSON formattata
+      const formattedJson = JSON.stringify(cleanedData, null, 2);
+
+      // Crea un Blob con il contenuto trasformato
+      const blob = new Blob([formattedJson], { type: "application/json" });
+
+      // Crea un URL temporaneo per il download
+      this.processedFileUrl = URL.createObjectURL(blob);
+
+      // Simula un click per avviare il download immediato
+      setTimeout(() => {
+        const link = document.createElement("a");
+        link.href = this.processedFileUrl;
+        link.download = "file.json"; // Nome del file scaricato
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, 100);
+    },
+
+    // Verifica se il contenuto del file è valido
+    validateGeoDataFormat(fileContent) {
+      // Verifica che il file non sia vuoto
+      if (!fileContent || fileContent.length === 0) {
+        return { isValid: false, message: 'Il file è vuoto.' };
+      }
+
+      // Funzione per validare la struttura di ciascun oggetto
+      const validateEntry = (entry) => {
+        //console.log("Entry: ", entry)
+
+        // Verifica la presenza dei campi obbligatori
+        if (!entry.timestamp || !entry.latitude || !entry.longitude || !entry.speed || !entry.accuracy) {
+          return { isValid: false, message: 'Mancano campi obbligatori nel file.' };
+        }
+
+        // Verifica che il timestamp sia nel formato ISO 8601
+        if (!isValidTimestamp(entry.timestamp)) {
+          return { isValid: false, message: `Timestamp non valido: ${entry.timestamp}` };
+        }
+
+        // Verifica che latitude e longitude siano nel range corretto
+        if (entry.latitude < -90 || entry.latitude > 90 || entry.longitude < -180 || entry.longitude > 180) {
+          return { isValid: false, message: `Coordinate non valide: ${entry.latitude}, ${entry.longitude}` };
+        }
+
+        // Verifica che speed e accuracy siano numerici
+        if (typeof entry.speed !== 'number' || typeof entry.accuracy !== 'number') {
+          return { isValid: false, message: `Speed o accuracy non numerici: ${entry.speed}, ${entry.accuracy}` };
+        }
+
+        // Se l'altitude è presente, deve essere numerico
+        if (entry.altitude && typeof entry.altitude !== 'number') {
+          return { isValid: false, message: `Altitude non numerico: ${entry.altitude}` };
+        }
+
+        return { isValid: true };
+      };
+
+      // Funzione per validare il formato del timestamp (ISO 8601)
+      function isValidTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return !isNaN(date.getTime()) && timestamp === date.toISOString();
+      }
+
+      // Esegui la validazione su ciascun elemento dei dati
+      for (const entry of fileContent) {
+        const result = validateEntry(entry);
+        if (!result.isValid) {
+          return result; // Ritorna il primo errore trovato
+        }
+      }
+
+      // Se tutti i dati sono validi
+      return { isValid: true, message: 'Dati validi.' };
+    },
+
+
     // Valida un file
-    async validateFile(hash) {
+    async validateFile(hash, validationResult) {
       if(!hash) {
         console.log("Errore durante la validazione. Hash non valido.");
         return;
@@ -210,9 +370,9 @@ export default {
         console.log("FONDI del Contratto PRIMA della Validazione:", initBalanceContratcStr);
 
         // Valida il File
-        // Rimborso al'utente che ha caricato i dati
+        // Rimborso al'utente che ha caricato i dati, se validationResult=true
         // Ricompensa al verficatore
-        const tx = await contractWithSigner.verifyData(hash, key);
+        const tx = await contractWithSigner.verifyData(hash, key, validationResult);
         console.log("Transaction hash:", tx.hash);
         await tx.wait();
 
@@ -258,11 +418,15 @@ export default {
 .file-item {
   display: flex;
   align-items: center;
-  gap: 20px; /* Distanza tra gli elementi */
+  gap: 30px; /* Distanza tra gli elementi */
   margin-top: 5px;
 }
 .file-item:hover {
   background-color: rgb(238, 235, 235);
+}
+
+a {
+  cursor: pointer;
 }
 
 </style>

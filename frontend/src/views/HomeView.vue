@@ -1,4 +1,6 @@
 <template>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+
   
     <div v-if="this.showAlertSuccessLoad" class="alert alert-success alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
         I tuoi dati sono stati caricati correttamente!
@@ -33,8 +35,10 @@
             <span><strong>{{ userAddress }}</strong></span>
         </div>
 
-        <div class="d-flex justify-content-between mt-3">
+        <div class="mt-3" style="text-align: left">
             <span><strong>{{ userRole }}</strong></span>
+            <i v-if="isVerifier" class="bi bi-patch-check-fill text-primary m-2"></i>
+            <i v-if="isAdmin" class="bi bi-patch-check-fill m-2" style="color: gold;"></i>
         </div>
 
         <div class="d-flex mt-3 mb-1">
@@ -47,6 +51,7 @@
         
     </div>
 
+    <!-- User Box: Data Uploading -->
     <div class="border mt-3 p-3" v-if="!isVerifier && !isAdmin" style="border-radius: 6px;">
         <p class="m-0 p-0" style="font-weight: bold;  text-align: left;">Caricamento Dati Crowdsensing</p>
         <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
@@ -56,6 +61,7 @@
         <DataUploader />
     </div>
 
+    <!-- Verifier Box: Data Verifyng -->
     <div class="border mt-3 p-3" v-if="isVerifier" style="border-radius: 6px;">
         <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Validazione Dati Crowdsensing</p>
         <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
@@ -63,6 +69,16 @@
         </p>
         
         <DataVerifier />
+    </div>
+
+    <!-- Admin Box: Data Managing -->
+    <div class="border mt-3 p-3" v-if="isAdmin" style="border-radius: 6px;">
+        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Gestione Dati Crowdsensing</p>
+        <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
+            Analizza le transazioni effettuate sulla blockchain.
+        </p>
+        
+        <DataManager />
     </div>
 
   
@@ -74,11 +90,12 @@ import eventBus from '@/eventBus';
 
 import DataUploader from '../components/DataUploader.vue';
 import DataVerifier from '../components/DataVerifier.vue';
+import DataManager from '../components/DataManager.vue';
 
 export default {
     name: 'HomeView',
     components: {
-        DataUploader, DataVerifier
+        DataUploader, DataVerifier, DataManager
     },
   
     data() {
@@ -141,5 +158,5 @@ export default {
     },
   
     
-  }
+}
 </script>
