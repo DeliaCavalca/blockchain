@@ -19,6 +19,7 @@ import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
 import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
 import eventBus from '@/eventBus';
+import CryptoJS from "crypto-js";
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 
@@ -85,9 +86,17 @@ export default {
         return;
       }
 
+      // Imposta il provider e il contratto una sola volta
+      const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+      const contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+
+
       const files = await Promise.all(
         this.hashToVerifyList.map(async (ipfsHash) => {
             try {
+
+              const encryptedKey = await contract.getEncryptedKey(ipfsHash);
+              console.log("Encrypted Key:", encryptedKey);
 
               // Recupera il file da IPFS, usando il CID
               const stream = client.cat(ipfsHash);
@@ -96,8 +105,14 @@ export default {
               for await (const chunk of stream) {
                 data = new Uint8Array([...data, ...chunk]); // Concatena i chunk ricevuti
               }
+
+              // Converti il Uint8Array in una stringa
+              const fileContent = new TextDecoder().decode(data);
+              console.log(`Contenuto del file (${ipfsHash}):`, fileContent);
+
+              const decryptedData = this.decryptFile(fileContent, encryptedKey);
               
-              const blob = new Blob([data]);
+              const blob = new Blob([decryptedData], { type: "application/octet-stream" });
               return { hash: ipfsHash, url: URL.createObjectURL(blob) };
 
             } catch (error) {
@@ -110,6 +125,55 @@ export default {
       this.fileToVerifyList = files.filter(file => file !== null);
       return;
 
+    }
+    ,
+
+    /**
+     * Decripta il file con la chiave fornita
+     * @param {string} encryptedBase64 - File criptato in Base64
+     * @param {string} key - Chiave di decrittografia
+     * @returns {Uint8Array} - File decriptato come dati binari
+     */
+    decryptFile(encryptedBase64, key) {
+      try {
+
+        console.log("Chiave passata:",key);
+        // Decripta usando AES e la chiave fornita
+        const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
+
+        // Verifica se la decrittografia ha prodotto dei dati
+        if (!decryptedBytes || !decryptedBytes.words) {
+          throw new Error("Decryption failed. Check your key and data format.");
+        }
+
+        // Converte i dati decriptati in un array di byte (Uint8Array)
+        const decryptedData = this.wordsToByteArray(decryptedBytes.words);
+
+        console.log("Decrypted Data (binary):", decryptedData);
+
+        // Ritorna i dati binari decriptati come Uint8Array
+        return new Uint8Array(decryptedData);
+      } catch (error) {
+        console.error("Decryption error:", error);
+        throw error;
+      }
+    },
+
+    /**
+     * Converte un array di parole (CryptoJS) in un array di byte
+     * @param {Array} words - Array di parole (oggetti WordArray)
+     * @returns {Array} - Array di byte
+     */
+    wordsToByteArray(words) {
+      const byteArray = [];
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        byteArray.push((word >> 24) & 0xff);
+        byteArray.push((word >> 16) & 0xff);
+        byteArray.push((word >> 8) & 0xff);
+        byteArray.push(word & 0xff);
+      }
+      return byteArray;
     },
 
 
