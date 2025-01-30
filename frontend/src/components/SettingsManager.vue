@@ -2,37 +2,80 @@
     <div style="font-size: 13px; text-align: left;">
       
         <div class="row">
-            <div class="col" style="font-size: 12px; text-align: left;">
-                <span>Disponibilità attuale sul Contratto:</span>
+            <div class="col" style="text-align: left;">
+                <span>Status:</span>
             </div>
 
-            <div class="col" style="font-size: 12px; text-align: right;">
-                <span>Modifica</span>
+            <div class="col" style="font-weight: bold; text-align: right;">
+                <span>{{ this.$store.state.status }}</span>
+                <i v-if="isClosed" class="bi bi-x-circle-fill m-2" style="color: darkred;"></i>
+                <i v-else class="bi bi-opencollective text-primary m-2"></i>
             </div>
         </div>
 
         
+        <!-- Saldo SC -->
+        <div class="row mt-3">
+            <div class="col" style="text-align: left;">
+                <span>Disponibilità attuale sul Contratto:</span>
+            </div>
+
+            <div class="col" style="text-align: right;">
+                <span>Modifica</span>
+            </div>
+        </div>
+ 
         <div class="row mt-1">
             <div class="col d-flex" style="text-align: left;">
                 <span class="border p-1" style="border-radius: 10px;"><strong>{{ formattedEthBalance }}</strong></span>
                 <span class="p-1"><strong>ETH</strong></span>
             </div>
 
-            <div class="col" style="font-size: 12px; text-align: right; font-weight: bold;">
+            <div class="col" style="text-align: right; font-weight: bold;">
                 <button @click="addBalance" class="border btn-balance" style="border-radius: 10px; padding: 3px 8px 3px 8px; margin-right: 5px;"><strong>+</strong></button>
                 <button @click="removeBalance" class="border btn-balance" :disabled="Number(this.ethBalanceSC) === Number(this.ethBalanceTemp)" style="border-radius: 10px; padding: 3px 10px 3px 10px;"><strong>-</strong></button>
             </div>
         </div>
 
         <div class="row mt-1">
-            <div class="col" style="font-size: 12px;">
+            <div class="col" style="">
                 <span @click="resetBalance" class="" style="cursor: pointer;">Reset</span>
             </div>
-            <div class="col" style="font-size: 12px; text-align: right;">
+            <div class="col" style=" text-align: right;">
                 <button class="btn-update" @click="depositFunds" :disabled="Number(this.ethBalanceSC) === Number(this.ethBalanceTemp)">Aggiorna Disponibilità</button>
             </div>
         </div>
 
+        <!-- Chiusura Campagna -->
+        <div class="row mt-5">
+            <div class="col" style="text-align: left;">
+                <span>Numero minimo di partecipazioni per la chiusura:</span>
+            </div>
+
+            <div class="col" style="text-align: right;">
+                <span>Modifica</span>
+            </div>
+        </div>
+
+        <div class="row mt-1">
+            <div class="col d-flex" style="text-align: left;">
+                <span class="border p-1" style="border-radius: 10px;"><strong>{{ numPartecipantsTemp }}</strong></span>
+            </div>
+
+            <div class="col" style="text-align: right; font-weight: bold;">
+                <button @click="addPartecipant" class="border btn-balance" style="border-radius: 10px; padding: 3px 8px 3px 8px; margin-right: 5px;"><strong>+</strong></button>
+                <button @click="removePartecipant" class="border btn-balance" :disabled="Number(numPartecipantsTemp) < 2" style="border-radius: 10px; padding: 3px 10px 3px 10px;"><strong>-</strong></button>
+            </div>
+        </div>
+
+        <div class="row mt-1">
+            <div class="col" style="">
+                <span @click="resetPartecipants" class="" style="cursor: pointer;">Reset</span>
+            </div>
+            <div class="col" style=" text-align: right;">
+                <button class="btn-update" @click="updatePartecipants" :disabled="Number(this.numPartecipants) === Number(this.numPartecipantsTemp)">Aggiorna Partecipanti</button>
+            </div>
+        </div>
   
     </div>
   </template>
@@ -51,7 +94,10 @@ export default {
         
         ethBalanceSC: null, // Balance sullo Smart Contract
         ethBalanceTemp: null,
-      };
+
+        numPartecipants: null, // Numero minimo di partecipanti per la chiusura 
+        numPartecipantsTemp: null,
+    };
     },
   
     created() {
@@ -59,6 +105,10 @@ export default {
         this.userAddress = this.$store.state.userAddress
 
         this.getContractBalance();
+
+        this.getCampaignStatus();
+
+        this.getNumPartecipants();
     },
 
     computed: {
@@ -176,6 +226,65 @@ export default {
             }
 
         },
+
+        async getNumPartecipants() {
+            let provider, contract;
+
+            try {
+                provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+                contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+                
+                // Ottieni il numero minimo di partecipanti
+                const num = await contract.getNumPartecipants();
+                console.log("MIN Partecipanti:", num);
+
+                this.numPartecipants = num
+                this.numPartecipantsTemp = num
+                
+                return;
+            } catch (error) {
+                console.error("Error getting MIN Partecipanti:", error);
+                return;
+            }
+        },
+
+        addPartecipant() {
+            this.numPartecipantsTemp = Number(this.numPartecipantsTemp) + 1
+        },
+
+        removePartecipant() {
+            if(Number(this.numPartecipantsTemp) > 1) {
+                this.numPartecipantsTemp = Number(this.numPartecipantsTemp) - 1
+            }
+        },
+
+        resetPartecipants() {
+            this.numPartecipantsTemp = this.numPartecipants
+        },
+
+        async updatePartecipants() {
+
+            let provider, contract, signer, contractWithSigner; 
+
+            try {
+                provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+                contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+                
+                signer = provider.getSigner(this.userAddress);
+                contractWithSigner = contract.connect(signer);
+
+                // Aggiorna il numero di partecipanti
+                const tx = await contractWithSigner.setMinimumParticipants(this.numPartecipantsTemp);
+                await tx.wait();
+
+                // Aggiorna partecipanti e status
+                this.getCampaignStatus();
+                this.getNumPartecipants();
+                    
+            } catch (error) {
+                console.error("Errore nel aggiornamento Partecipanti:", error);
+            }
+        }
     }
 };
 </script>

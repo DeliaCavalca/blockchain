@@ -11,7 +11,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" @click="closeAlertError"></button>
     </div>
 
-    <div v-if="isClosed" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+    <div v-if="isClosed && !isAdmin" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
         <strong>Attenzione!</strong> La campagna di Crowdsensing è stata <strong>chiusa</strong>. Attualmente non è possibile caricare ulteriori dati.
     </div>
 
