@@ -31,6 +31,7 @@ import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
 import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
 import eventBus from '@/eventBus';
+import CryptoJS from "crypto-js";
 import { mapGetters } from 'vuex'
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
@@ -84,6 +85,24 @@ export default {
       }
     },
 
+    async encryptFile() {
+      try {
+        if (!this.file) throw new Error("No file selected");
+        if (!this.encryptionKey) throw new Error("No encryption key provided");
+
+        console.log("Encrypting text file...");
+        const fileContent = await this.file.text();
+        const encryptedData = CryptoJS.AES.encrypt(fileContent, this.encryptionKey).toString();
+        console.log("File encrypted successfully!");
+        console.log("encryptedData:",encryptedData)
+        return new Blob([encryptedData], { type: "text/plain" });
+      } catch (error) {
+        this.message = "Error encrypting file.";
+        console.error("Error encrypting file:", error);
+        throw error;
+      }
+    },
+
     // Carica il file su IPFS
     async uploadToIpfs() {
       try {
@@ -91,10 +110,11 @@ export default {
           throw new Error("No file selected");
         }
 
+        const encryptedBlob = await this.encryptFile();
         console.log("Uploading file to IPFS...");
 
         // Caricamento dati su IPFS
-        const added = await client.add(this.file);
+        const added = await client.add(encryptedBlob);
         // IPFS Hash (CID): posizione in cui sono stati salvati i dati
         this.ipfsHash = added.path; // Salva l'hash IPFS del file caricato
 
@@ -139,9 +159,13 @@ export default {
 
         console.log("Sending CID to blockchain...");
         //const ipfsHashBytes32 = this.ipfsHashToBytes32(this.ipfsHash);
+
         const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
           value: ethers.utils.parseEther(this.ethToPay)
         });
+
+        this.encryptedKey = await contractWithSigner.getEncryptedKey(this.ipfsHash);
+        console.log("Chiave caricata:", this.encryptedKey);
 
         console.log("Transaction sent:", tx);
         this.message = `Transaction sent: ${tx.hash}`;
