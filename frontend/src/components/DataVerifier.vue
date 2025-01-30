@@ -379,10 +379,6 @@ export default {
         console.log("DATA VERIFIED SUCCESSFULLY!");
 
         // Controlla e Aggiorna il Balance dell'utente
-        /**  
-         * TODO: viene aggiornato/ottenuto il saldo di user che crea la transazione o del verifier??
-        
-        */
         const finalBalance = await provider.getBalance(this.userAddress);
         const finalEthBalance = ethers.utils.formatEther(finalBalance); // Converte il saldo in ETH
         console.log(`Final Balance of User: ${finalEthBalance} ETH`);

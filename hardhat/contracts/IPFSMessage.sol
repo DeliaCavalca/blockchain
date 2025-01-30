@@ -209,6 +209,11 @@ contract IPFSMessage {
         return address(this).balance;
     }
 
+    // Funzione per permettere all'Admin di depositare fondi nel contratto
+    function depositFunds() public payable {
+        require(users[msg.sender].role == Role.Admin, "Only the Admin can deposit funds");
+    }
+
     // Funzione per ottenere lo stato della campagna
     function getCampaignStatus() public view returns (string memory) {
         return campaignStatus;
@@ -218,4 +223,23 @@ contract IPFSMessage {
     function getUploadedCount() public view returns (uint256) {
         return uploadedHashes.length;
     }
+
+    // Restituisce il numero minimo di partecipanti
+    function getNumPartecipants() public view returns (uint256) {
+        return minimumParticipants;
+    }
+
+    // Funzione per permettere all'Admin di modificare il numero minimo di partecipanti
+    function setMinimumParticipants(uint256 newMinimum) public {
+        require(users[msg.sender].role == Role.Admin, "Only the Admin can change the minimum participants");
+        
+        // Modifica il valore del numero minimo di partecipanti
+        minimumParticipants = newMinimum;
+
+        // Verifica se la campagna deve essere chiusa
+        if (verifiedCount >= minimumParticipants) {
+            closeCampaign();
+        }
+    }
+
 }

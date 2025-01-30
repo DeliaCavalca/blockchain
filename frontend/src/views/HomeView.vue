@@ -11,10 +11,11 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" @click="closeAlertError"></button>
     </div>
 
-    <div v-if="isClosed" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+    <div v-if="isClosed && !isAdmin" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
         <strong>Attenzione!</strong> La campagna di Crowdsensing è stata <strong>chiusa</strong>. Attualmente non è possibile caricare ulteriori dati.
     </div>
 
+    <!-- User INFO -->
     <div class="border p-3" style="border-radius: 6px;">
         
         <div class="row">
@@ -73,7 +74,15 @@
 
     <!-- Admin Box: Data Managing -->
     <div class="border mt-3 p-3" v-if="isAdmin" style="border-radius: 6px;">
-        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Gestione Dati Crowdsensing</p>
+        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Gestione Campagna Crowdsensing</p>
+        <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
+            Impostazioni della tua campagna di Crowdsensing.
+        </p>
+
+        <SettingsManager />
+    </div>
+    <div class="border mt-3 p-3" v-if="isAdmin" style="border-radius: 6px;">
+        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Analisi Transazioni</p>
         <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
             Analizza le transazioni effettuate sulla blockchain.
         </p>
@@ -91,11 +100,12 @@ import eventBus from '@/eventBus';
 import DataUploader from '../components/DataUploader.vue';
 import DataVerifier from '../components/DataVerifier.vue';
 import DataManager from '../components/DataManager.vue';
+import SettingsManager from '../components/SettingsManager.vue';
 
 export default {
     name: 'HomeView',
     components: {
-        DataUploader, DataVerifier, DataManager
+        DataUploader, DataVerifier, DataManager, SettingsManager
     },
   
     data() {
