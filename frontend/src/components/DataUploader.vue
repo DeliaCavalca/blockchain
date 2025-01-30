@@ -5,22 +5,24 @@
     <p class="m-0 p-0 mb-4">Tale quantità ti verrà restituita non appena i tuoi dati saranno stati validati.</p>
 
 
-    <p v-if="!selectedFileName" class="m-0 p-0">Seleziona il tuo file <span><strong>.txt </strong></span>:</p>
+    <p v-if="!selectedFileName" class="m-0 p-0">Seleziona il tuo file <span><strong>.json </strong></span>:</p>
     <p v-else class="m-0 p-0">File selezionato: <span><strong>{{ selectedFileName }}</strong></span></p>
 
 
     <div class="">
       <label class="p-1 mt-1 custom-btn" :class="{ 'disabled-label': isClosed }">
         <span>Scegli file</span>
-        <input class="selectfileBtn" type="file" @change="onFileChange" :disabled="isClosed" />
+        <input class="selectfileBtn" type="file" @change="onFileChange" :disabled="isClosed" accept=".json"/>
       </label>
     </div>
+    <p v-if="invalidFile" class="text-danger m-0 p-0">Il file deve essere un file .json valido.</p>
+
     
     <div class="mt-5">
       <p class="m-0 p-0">Carica i tuoi dati sulla piattaforma!</p>
       <p class="m-0 p-0">I tuoi dati verranno criptati per garantire la tua privacy.</p>
 
-      <button class="btn uploadBtn mt-2 p-1" :disabled="!file" @click="encryptAndLoadData">Carica Dati</button>
+      <button class="custom-btn mt-2 p-1" :disabled="!file" @click="encryptAndLoadData">Carica Dati</button>
     </div>
 
   </div>
@@ -43,6 +45,7 @@ export default {
       userAddress: null, // Indirizzo dell'utente Ethereum
 
       file: null,
+      invalidFile: false,
       selectedFileName: null,
       ipfsHash: "",
       encryptionKey: "",
@@ -77,11 +80,23 @@ export default {
 
     // Gestisce il cambiamento del file
     onFileChange(event) {
-      this.file = event.target.files[0]; // Ottieni il file selezionato
-      if(this.file) {
-        this.selectedFileName = this.file.name; // Aggiorna il nome del file
+      const file = event.target.files[0]; // Ottieni il file selezionato
+
+      if(file) {
+        // Controllo se il file è presente e ha estensione .json
+        if (file.name.endsWith('.json')) {
+          this.file = file;
+          this.selectedFileName = this.file.name; // Aggiorna il nome del file
+          this.invalidFile = false; // Nessun errore
+        } else {
+          this.selectedFileName = null;
+          this.file = null;
+          this.invalidFile = true; // Mostra errore se il file non è .json
+        }
+
       } else {
         this.selectedFileName = null;
+        this.file = null;
       }
     },
 
@@ -129,13 +144,7 @@ export default {
       }
     },
 
-    // Converti la stringa hash IPFS in bytes32
-    /*
-    ipfsHashToBytes32(ipfsHash) {
-      return ethers.utils.id(ipfsHash);
-    },*/
-
-
+    
     // Comunica allo Smart Contract la posizone dei dati su IPFS
     async sendCIDToContract() {
       if (!this.ipfsHash) {
@@ -221,25 +230,9 @@ export default {
 
 <style scoped>
 
-
 .disabled-label {
   opacity: 0.7;
   pointer-events: none; /* Impedisce il click */
-}
-
-
-.uploadBtn {
-  display: block;
-  font-size: 13px;
-  border: 1px solid #0d442b;
-  border-radius: 3px;        
-  cursor: pointer;  
-  background-color: transparent; 
-  transition: background-color 0.3s, color 0.3s;   
-}
-.uploadBtn:hover {
-  background-color: #0d442b;  
-  color: white;              
 }
 
 </style>
