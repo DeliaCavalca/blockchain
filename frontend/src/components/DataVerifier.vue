@@ -77,10 +77,11 @@ export default {
 
     // Ottenere l'elenco di file da verificare da IPFS
     async getUnverifiedFile() {
-      await this.getUnverifiedHash()
+      await this.getUnverifiedHash();
 
       if (this.hashToVerifyList.length === 0) {
         console.log("Nessun file da validare");
+        this.fileToVerifyList = [];
         return;
       }
 

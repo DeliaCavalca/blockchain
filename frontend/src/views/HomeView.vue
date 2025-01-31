@@ -46,8 +46,8 @@
             <span style="font-size: 12px;">Disponibilità attuale:</span>
         </div>
         <div class="d-flex">
-            <span class="border p-1" style="border-radius: 10px;"><strong>{{ formattedEthBalance }}</strong></span>
-            <span class="p-1"><strong>ETH</strong></span>
+            <span class="border" style="border-radius: 10px; padding: 5px 6px 5px 6px;"><strong>{{ formattedEthBalance }}</strong></span>
+            <span style="padding: 5px 6px 5px 6px;"><strong>ETH</strong></span>
         </div>
         
     </div>
@@ -82,9 +82,9 @@
         <SettingsManager />
     </div>
     <div class="border mt-3 p-3" v-if="isAdmin" style="border-radius: 6px;">
-        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Analisi Transazioni</p>
+        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Analisi Dati</p>
         <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
-            Analizza le transazioni effettuate sulla blockchain.
+            Dati caricati sulla piattaforma.
         </p>
         
         <DataManager />
@@ -96,6 +96,8 @@
 <script>
 import { mapGetters } from 'vuex'
 import eventBus from '@/eventBus';
+import { ethers } from 'ethers';
+import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
 
 import DataUploader from '../components/DataUploader.vue';
 import DataVerifier from '../components/DataVerifier.vue';
@@ -143,6 +145,8 @@ export default {
         this.userAddress = this.$store.state.userAddress
         this.userRole = this.$store.state.userRole
 
+        this.getCampaignStatus();
+
         // manage the event showAlertSuccessLoad
         eventBus.on('showAlertSuccessLoad', () => {
             this.showAlertSuccessLoad = true
@@ -165,6 +169,25 @@ export default {
         closeAlertError() {
             this.showAlertErrorLoad = false
         },
+
+        async getCampaignStatus() {
+
+            let provider, contract; 
+
+            try {
+                provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+                contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+                
+                // Ottieni lo Stato della campagna
+                const status = await contract.getCampaignStatus();
+                this.$store.commit('SET_STATUS', status);
+                    
+            } catch (error) {
+                console.error("Errore nel ottenere Status:", error);
+            }
+
+        },
+
     },
   
     
