@@ -79,10 +79,9 @@ export default {
           const data = await contract.getAllData();
 
           const uploadedHashes = data[0]
-          const owners = data[1]
+          //const owners = data[1]
           const verified = data[2]
           const verifiedNotValid = data[3]
-          console.log(owners, verified)
 
           this.numFileTot = uploadedHashes.length
           this.numFileValid = verified.filter(Boolean).length;

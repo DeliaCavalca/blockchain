@@ -241,7 +241,6 @@ export default {
                 
                 // Ottieni il numero minimo di partecipanti
                 const num = await contract.getNumPartecipants();
-                console.log("MIN Partecipanti:", num);
 
                 this.numPartecipants = num
                 this.numPartecipantsTemp = num
