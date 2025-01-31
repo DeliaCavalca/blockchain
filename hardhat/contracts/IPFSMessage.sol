@@ -41,6 +41,7 @@ contract IPFSMessage {
     event DataUploaded(address indexed user, string ipfsHash);
     event DataVerified(string ipfsHash, bool isValid);
     event CampaignClosed(string status);
+    event CampaignOpen(string status);
 
 
     // Metodo eseguito quando viene fatto il deploy del contratto
@@ -94,19 +95,21 @@ contract IPFSMessage {
     }
 
     // Funzione per ottenere tutti i dati caricati
-    function getAllData() public view returns (string[] memory, address[] memory, bool[] memory) {
+    function getAllData() public view returns (string[] memory, address[] memory, bool[] memory, bool[] memory) {
         uint256 total = uploadedHashes.length;
 
         address[] memory owners = new address[](total);
         bool[] memory verified = new bool[](total);
+        bool[] memory notValid = new bool[](total);
 
         for (uint256 i = 0; i < total; i++) {
             string memory hash = uploadedHashes[i];
             owners[i] = dataOwners[hash];
             verified[i] = dataVerified[hash];
+            notValid[i] = dataVerifiedNotValid[hash];
         }
 
-        return (uploadedHashes, owners, verified);
+        return (uploadedHashes, owners, verified, notValid);
     }
 
     // Funzione per ottenere la chiave di cifratura di un dato
@@ -181,6 +184,11 @@ contract IPFSMessage {
         campaignStatus = "Closed";
         emit CampaignClosed("Campaign has been closed due to reaching minimum verification threshold.");
     }
+    // Funzione per aprire la campagna quando si modifica il numero minimo di verifiche
+    function openCampaign() private {
+        campaignStatus = "Ongoing";
+        emit CampaignOpen("Campaign has been open.");
+    }
 
     // Funzione per premiare l'utente che ha caricato i dati verificati
     function rewardUser(address user, string memory ipfsHash) private {
@@ -190,7 +198,9 @@ contract IPFSMessage {
         filePayments[ipfsHash][user] = 0; // Resetta il pagamento prima del trasferimento per sicurezza
 
         // Rimborso dell'utente
-        payable(user).transfer(amount);
+        // Trasferimento ETH con `call`
+        (bool success, ) = payable(user).call{value: amount}("");
+        require(success, "Transfer to user failed");
     }
 
     // Funzione per premiare il verificatore in seguito alla validazione di un dato
@@ -201,7 +211,9 @@ contract IPFSMessage {
         require(address(this).balance >= verifyFee, "Not enough balance in contract to reward verifier");
 
         // Trasferimento della ricompensa al Verificatore
-        payable(verifier).transfer(verifyFee);
+        // Trasferimento ETH con `call`
+        (bool success, ) = payable(verifier).call{value: verifyFee}("");
+        require(success, "Transfer to verifier failed");
     }
 
     // Restituisce i fondi del contratto
@@ -239,6 +251,11 @@ contract IPFSMessage {
         // Verifica se la campagna deve essere chiusa
         if (verifiedCount >= minimumParticipants) {
             closeCampaign();
+        }
+
+        // Verifica se la campagna deve essere aperta
+        if (verifiedCount < minimumParticipants) {
+            openCampaign();
         }
     }
 

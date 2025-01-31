@@ -12,10 +12,15 @@
                 <i v-else class="bi bi-opencollective text-primary m-2"></i>
             </div>
         </div>
+        <div class="row mt-1" v-if="isClosed">
+            <div class="col" style="">
+                <p class="m-0" style="font-weight: bold; padding-bottom: 20px; width: 100%; border-bottom: 1px solid lightgray;">La campagna è chiusa.</p>
+            </div>
+        </div>
 
         
         <!-- Saldo SC -->
-        <div class="row mt-3">
+        <div class="row mt-4">
             <div class="col" style="text-align: left;">
                 <span>Disponibilità attuale sul Contratto:</span>
             </div>
@@ -27,19 +32,19 @@
  
         <div class="row mt-1">
             <div class="col d-flex" style="text-align: left;">
-                <span class="border p-1" style="border-radius: 10px;"><strong>{{ formattedEthBalance }}</strong></span>
-                <span class="p-1"><strong>ETH</strong></span>
+                <span class="border" style="border-radius: 10px; padding: 5px 6px 5px 6px;"><strong>{{ formattedEthBalance }}</strong></span>
+                <span style="padding: 5px 6px 5px 6px;"><strong>ETH</strong></span>
             </div>
 
             <div class="col" style="text-align: right; font-weight: bold;">
-                <button @click="addBalance" class="border btn-balance" style="border-radius: 10px; padding: 3px 8px 3px 8px; margin-right: 5px;"><strong>+</strong></button>
-                <button @click="removeBalance" class="border btn-balance" :disabled="Number(this.ethBalanceSC) === Number(this.ethBalanceTemp)" style="border-radius: 10px; padding: 3px 10px 3px 10px;"><strong>-</strong></button>
+                <button @click="addBalance" class="border btn-balance" :disabled="isClosed" style="border-radius: 10px; padding: 3px 8px 3px 8px; margin-right: 5px;"><strong>+</strong></button>
+                <button @click="removeBalance" class="border btn-balance" :disabled="(Number(this.ethBalanceSC) === Number(this.ethBalanceTemp)) || isClosed" style="border-radius: 10px; padding: 3px 10px 3px 10px;"><strong>-</strong></button>
             </div>
         </div>
 
         <div class="row mt-1">
             <div class="col" style="">
-                <span @click="resetBalance" class="" style="cursor: pointer;">Reset</span>
+                <span @click="resetBalance" :disabled="isClosed" style="cursor: pointer;">Reset</span>
             </div>
             <div class="col" style=" text-align: right;">
                 <button class="btn-update" @click="depositFunds" :disabled="Number(this.ethBalanceSC) === Number(this.ethBalanceTemp)">Aggiorna Disponibilità</button>
@@ -47,7 +52,7 @@
         </div>
 
         <!-- Chiusura Campagna -->
-        <div class="row mt-5">
+        <div class="row mt-4">
             <div class="col" style="text-align: left;">
                 <span>Numero minimo di partecipazioni per la chiusura:</span>
             </div>
@@ -59,23 +64,25 @@
 
         <div class="row mt-1">
             <div class="col d-flex" style="text-align: left;">
-                <span class="border p-1" style="border-radius: 10px;"><strong>{{ numPartecipantsTemp }}</strong></span>
+                <span class="border" style="border-radius: 10px; padding: 3px 8px 3px 8px;"><strong>{{ numPartecipantsTemp }}</strong></span>
             </div>
 
             <div class="col" style="text-align: right; font-weight: bold;">
                 <button @click="addPartecipant" class="border btn-balance" style="border-radius: 10px; padding: 3px 8px 3px 8px; margin-right: 5px;"><strong>+</strong></button>
-                <button @click="removePartecipant" class="border btn-balance" :disabled="Number(numPartecipantsTemp) < 2" style="border-radius: 10px; padding: 3px 10px 3px 10px;"><strong>-</strong></button>
+                <button @click="removePartecipant" class="border btn-balance" :disabled="(Number(numPartecipantsTemp) < 2) || isClosed" style="border-radius: 10px; padding: 3px 10px 3px 10px;"><strong>-</strong></button>
             </div>
         </div>
 
         <div class="row mt-1">
             <div class="col" style="">
-                <span @click="resetPartecipants" class="" style="cursor: pointer;">Reset</span>
+                <span @click="resetPartecipants" :disabled="isClosed" style="cursor: pointer;">Reset</span>
             </div>
             <div class="col" style=" text-align: right;">
                 <button class="btn-update" @click="updatePartecipants" :disabled="Number(this.numPartecipants) === Number(this.numPartecipantsTemp)">Aggiorna Partecipanti</button>
             </div>
         </div>
+
+        
   
     </div>
   </template>
@@ -105,8 +112,6 @@ export default {
         this.userAddress = this.$store.state.userAddress
 
         this.getContractBalance();
-
-        this.getCampaignStatus();
 
         this.getNumPartecipants();
     },
@@ -292,7 +297,7 @@ export default {
 <style scoped>
 
 .btn-balance:hover {
-    background-color: rgb(241, 241, 241);
+    background-color: rgb(250, 247, 247);
     cursor: pointer;
 }
 .btn-balance:disabled {
