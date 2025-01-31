@@ -34,7 +34,7 @@ The platform enables users to participate in crowdsensing campaigns, submit data
 - **Ethereum (Hardhat)** for smart contract development and testing.
 - **IPFS** for decentralized file storage.
 - **Solidity** for smart contract coding.
-- **Frontend (Vue.js)** for the user interface (UI).
+- **Vue.js** for the user interface (UI).
 - **Node.js** for backend interaction.
 
 ## Setup Instructions
@@ -48,7 +48,7 @@ Before running the project, ensure you have the following installed:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/crowdsensing-platform.git
+git clone https://github.com/DeliaCavalca/blockchain.git
 cd blockchain
 ```
 ### 2. Install Dependencies
