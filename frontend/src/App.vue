@@ -9,7 +9,7 @@
 
   <!-- if user is logged -->
   <div v-else>
-    <h6 class="mt-5" style="font-weight: bold;">Crowdsensing App</h6>
+    <h6 class="mt-5" style="font-weight: bold;">Crowdsensing Platform</h6>
     
     <!-- main container -->
     <div class="row mainBox">
