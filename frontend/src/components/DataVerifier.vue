@@ -6,11 +6,16 @@
 
     <div v-for="(file, index) in fileToVerifyList" :key="file.hash">
       <div class="file-item mt-3">
+        <i v-if="file.signatureError == ''" class="bi bi-check-circle-fill text-primary"></i>
+        <i v-if="file.signatureError != ''" class="bi bi-check-circle-fill" style="color: darkred;"></i>
+
         <span><strong>File {{ index + 1 }}</strong></span>
         <a :href="processedFileUrl" @click.prevent="prepareDownload(file)" target="_blank">Vedi File</a>
         <button class="custom-btn" @click="validateFile(file.hash, true)" :disabled="file.validationError != ''">Valida</button>
         <button class="custom-btn-2" @click="validateFile(file.hash, false)">Scarta</button>
       </div>
+
+      <p v-if="file.signatureError != ''" class="m-0 p-0" style="color: darkred; font-weight: bold; font-size: 12px;">{{ file.signatureError }}</p>
       <p v-if="file.validationError != ''" class="m-0 p-0" style="color: darkred; font-weight: bold; font-size: 12px;">{{ file.validationError }}</p>
     </div>
 
@@ -97,7 +102,7 @@ export default {
               const encryptedKey = await contract.getEncryptedKey(ipfsHash, this.userAddress);
               console.log("GET Encrypted Key:", encryptedKey);
 
-              // Recupera il file da IPFS, usando il CID
+              // Recupera i dati da IPFS, usando il CID
               const stream = client.cat(ipfsHash);
               
               let data = new Uint8Array();
@@ -105,19 +110,46 @@ export default {
                 data = new Uint8Array([...data, ...chunk]); // Concatena i chunk ricevuti
               }
 
-              // Converti il Uint8Array in una stringa
-              const fileContent = new TextDecoder().decode(data);
-              console.log(`Contenuto del file PRIMA di DECRIPT (${ipfsHash}):`, fileContent);
+              // Converte i dati in stringa JSON
+              const fileData = JSON.parse(new TextDecoder().decode(data));
+              //console.log("File Data:", fileData);
+              // Estrai il file cifrato e la firma dal file JSON
+              const encryptedFile = fileData.file;
+              const signature = fileData.signature;
 
-              // Decodifica il file, usando la sua chiave AES
-              const decryptedData = this.decryptFile(fileContent, encryptedKey);
               
+              // Calcola l'hash (digest) del file cifrato
+              const computedHash = await this.computeSHA256(encryptedFile);
+              console.log("COMPUTED FILE DIGEST: ", computedHash);
+              // Ottieni l'indirizzo (chiave pubblica) originale di chi ha firmato
+              const recoveredSigner = ethers.utils.verifyMessage(computedHash, signature);
+              console.log("RECOVERED SIGNER ADDRESS: ", recoveredSigner);
+              
+              // Recupera l'indirizzo (chiave pubblica) dell'utente che ha caricato tale hash
+              const userAddress = await contract.getOwnerAddress(ipfsHash); 
+              console.log("USER ADDRESS: ", userAddress)
+              
+               
+              const isValid = recoveredSigner === userAddress;
+              console.log("FIRMA VALIDA?", isValid);
+
+              let signatureError = ''
+              if (isValid) {
+                console.log("La firma è valida. Il file è autentico.");
+              } else {
+                console.log("Firma non valida. Il file potrebbe essere stato manomesso.");
+                signatureError = 'Attenzione! Il file potrebbe essere stato manomesso.';
+              }
+
+              // Decifra il file, usando la sua chiave AES
+              const decryptedData = this.decryptFile(encryptedFile, encryptedKey);
               const blob = new Blob([decryptedData], { type: "application/octet-stream" });
-              return { hash: ipfsHash, url: URL.createObjectURL(blob) };
+              
+              return { hash: ipfsHash, url: URL.createObjectURL(blob), signatureError: signatureError };
 
             } catch (error) {
-                console.error(`Errore nel download del file IPFS con hash ${ipfsHash}:`, error);
-                return null;
+              console.error(`Errore nel download del file IPFS con hash ${ipfsHash}:`, error);
+              return null;
             }
         })
       );
@@ -127,9 +159,19 @@ export default {
 
       return;
 
-    }
-    ,
+    },
 
+    // Funzione per calcolare SHA-256 del file
+    async computeSHA256(input) {
+      if (input instanceof Blob) {
+        input = await input.arrayBuffer(); // Converte Blob in ArrayBuffer
+      }
+
+      const buffer = new Uint8Array(input);
+      const hash = ethers.utils.keccak256(buffer); // Calcola l'hash
+      return hash;
+    },
+    
     /**
      * Decripta il file con la chiave fornita
      * @param {string} encryptedBase64 - File criptato in Base64
@@ -186,7 +228,7 @@ export default {
         const validationResult = await this.validateGeoData(file);
 
         if (validationResult) {
-          file.validationError = '';  // Se valido, rimuovi eventuali errori
+          file.validationError = '';
         } else {
           file.validationError = 'Attenzione! Il contenuto del file non è valido.'
         }

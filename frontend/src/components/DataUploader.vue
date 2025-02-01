@@ -30,6 +30,7 @@ import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IP
 import eventBus from '@/eventBus';
 import CryptoJS from "crypto-js";
 import { mapGetters } from 'vuex'
+import accounts from "@/assets/hardhat-accounts.json"; 
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 
@@ -122,13 +123,25 @@ export default {
         const fileContent = await this.file.text();
         const encryptedData = CryptoJS.AES.encrypt(fileContent, this.encryptionKey).toString();
         console.log("File encrypted successfully!");
-        console.log("encryptedData:",encryptedData)
-        return new Blob([encryptedData], { type: "text/plain" });
+        console.log("encryptedData:", encryptedData);
+        //return new Blob([encryptedData], { type: "text/plain" });
+        return encryptedData;
       } catch (error) {
         this.message = "Error encrypting file.";
         console.error("Error encrypting file:", error);
         throw error;
       }
+    },
+
+    // Funzione per calcolare SHA-256 del file
+    async computeSHA256(input) {
+      if (input instanceof Blob) {
+        input = await input.arrayBuffer(); // Converte Blob in ArrayBuffer
+      }
+
+      const buffer = new Uint8Array(input);
+      const hash = ethers.utils.keccak256(buffer); // Calcola l'hash
+      return hash;
     },
 
     // Carica il file su IPFS
@@ -140,10 +153,31 @@ export default {
 
         // codifica il file con la chiave AES
         const encryptedBlob = await this.encryptFile();
-        console.log("Uploading file to IPFS...");
+        
+        // calcolo hash (SHA-256) del file: genera il digest
+        const fileHash = await this.computeSHA256(encryptedBlob);
+        console.log("FILE DIGEST: ", fileHash);
 
+        // recupera la chiave privata dell'utente
+        const user = accounts.find(acc => acc.address === this.userAddress);
+        const privateKey = user.privateKey;
+        // firma del digest con la chiave privata dell'utente
+        const wallet = new ethers.Wallet(privateKey);
+        const signature = await wallet.signMessage(fileHash);
+        //console.log("SIGNATURE: ", signature);
+
+
+        // Caricamento dati su IPFS: file cifrato + firma del digest
+        const dataToUpload = {
+          file: encryptedBlob,     // File cifrato
+          signature: signature     // Firma del digest
+        };
+        console.log("DATA TO UPLOAD")
+        console.log(dataToUpload)
+        const dataBlob = new Blob([JSON.stringify(dataToUpload)], { type: "application/json" });
+        
         // Caricamento dati su IPFS
-        const added = await client.add(encryptedBlob);
+        const added = await client.add(dataBlob);
         // IPFS Hash (CID): posizione in cui sono stati salvati i dati
         this.ipfsHash = added.path; // Salva l'hash IPFS del file caricato
 
@@ -217,7 +251,9 @@ export default {
       // genera chiave AES-256 per criptare file
       await this.generateKey(); 
 
-      // codifica dei dati e upload su IPFS
+      // codifica dei dati 
+      // genera e firma del digest
+      // upload su IPFS: file + firma
       await this.uploadToIpfs();
       
       // comunicare allo SC la posizione dei dati su IPFS (CID)
