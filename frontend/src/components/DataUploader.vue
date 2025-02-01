@@ -112,7 +112,7 @@ export default {
       }
     },
 
-    // Funzione per cifrare il file
+    // Funzione per cifrare il file con la chiave AES
     async encryptFile() {
       try {
         if (!this.file) throw new Error("No file selected");
@@ -138,6 +138,7 @@ export default {
           throw new Error("No file selected");
         }
 
+        // codifica il file con la chiave AES
         const encryptedBlob = await this.encryptFile();
         console.log("Uploading file to IPFS...");
 
@@ -174,6 +175,7 @@ export default {
         const initialBalance = await provider.getBalance(this.userAddress);
         console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
 
+        // Salva il CID e la chiave usata per criptare il file sullo Smart Contract
         console.log("Sending CID to blockchain...");
         const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
           value: ethers.utils.parseEther(this.ethToPay)
@@ -215,7 +217,7 @@ export default {
       // genera chiave AES-256 per criptare file
       await this.generateKey(); 
 
-      // codifica dei dati
+      // codifica dei dati e upload su IPFS
       await this.uploadToIpfs();
       
       // comunicare allo SC la posizione dei dati su IPFS (CID)

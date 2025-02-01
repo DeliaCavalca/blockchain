@@ -89,13 +89,13 @@ export default {
       const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
       const contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
 
-
       const files = await Promise.all(
         this.hashToVerifyList.map(async (ipfsHash) => {
             try {
 
+              // Recupera la chiave AES con la quale è stato criptato il file
               const encryptedKey = await contract.getEncryptedKey(ipfsHash, this.userAddress);
-              console.log("Encrypted Key:", encryptedKey);
+              console.log("GET Encrypted Key:", encryptedKey);
 
               // Recupera il file da IPFS, usando il CID
               const stream = client.cat(ipfsHash);
@@ -109,6 +109,7 @@ export default {
               const fileContent = new TextDecoder().decode(data);
               console.log(`Contenuto del file PRIMA di DECRIPT (${ipfsHash}):`, fileContent);
 
+              // Decodifica il file, usando la sua chiave AES
               const decryptedData = this.decryptFile(fileContent, encryptedKey);
               
               const blob = new Blob([decryptedData], { type: "application/octet-stream" });
