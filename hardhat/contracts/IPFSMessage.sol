@@ -94,6 +94,12 @@ contract IPFSMessage {
         emit DataUploaded(msg.sender, ipfsHash);
     }
 
+    // Funzione per ottenere l'indirizzo del proprietario dei dati
+    function getOwnerAddress(string memory ipfsHash) public view returns (address) {
+        // Restituisce l'indirizzo del proprietario associato all'hash IPFS
+        return dataOwners[ipfsHash];
+    }
+
     // Funzione per ottenere tutti i dati caricati
     function getAllData() public view returns (string[] memory, address[] memory, bool[] memory, bool[] memory) {
         uint256 total = uploadedHashes.length;
