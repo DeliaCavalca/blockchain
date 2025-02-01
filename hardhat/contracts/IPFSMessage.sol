@@ -113,7 +113,8 @@ contract IPFSMessage {
     }
 
     // Funzione per ottenere la chiave di cifratura di un dato
-    function getEncryptedKey(string memory ipfsHash) public view returns (string memory) {
+    function getEncryptedKey(string memory ipfsHash, address verifier) public view returns (string memory) {
+        require(users[verifier].role == Role.Verifier, "Only verifiers can get the keys");
         return encryptedData[ipfsHash];
     }
 

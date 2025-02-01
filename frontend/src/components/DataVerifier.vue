@@ -94,7 +94,7 @@ export default {
         this.hashToVerifyList.map(async (ipfsHash) => {
             try {
 
-              const encryptedKey = await contract.getEncryptedKey(ipfsHash);
+              const encryptedKey = await contract.getEncryptedKey(ipfsHash, this.userAddress);
               console.log("Encrypted Key:", encryptedKey);
 
               // Recupera il file da IPFS, usando il CID
@@ -353,7 +353,7 @@ export default {
         contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
 
         // Ottieni la Chiave
-        const key = await contract.getEncryptedKey(hash);
+        const key = await contract.getEncryptedKey(hash, this.userAddress);
 
         if(!key) {
           console.log("Errore durante la validazione. Key non valida.");

@@ -1,15 +1,12 @@
 <template>
   <div style="font-size: 13px; text-align: left;">
-    
     <p class="m-0 p-0">Quota richiesta per l'upload: <span><strong>{{ ethToPay }} ETH</strong></span></p>
     <p class="m-0 p-0 mb-4">Tale quantità ti verrà restituita non appena i tuoi dati saranno stati validati.</p>
-
 
     <p v-if="!selectedFileName" class="m-0 p-0">Seleziona il tuo file <span><strong>.json </strong></span>:</p>
     <p v-else class="m-0 p-0">File selezionato: <span><strong>{{ selectedFileName }}</strong></span></p>
 
-
-    <div class="">
+    <div>
       <label class="p-1 mt-1 custom-btn" :class="{ 'disabled-label': isClosed }">
         <span>Scegli file</span>
         <input class="selectfileBtn" type="file" @change="onFileChange" :disabled="isClosed" accept=".json"/>
@@ -17,14 +14,12 @@
     </div>
     <p v-if="invalidFile" class="text-danger m-0 p-0">Il file deve essere un file .json valido.</p>
 
-    
     <div class="mt-5">
       <p class="m-0 p-0">Carica i tuoi dati sulla piattaforma!</p>
       <p class="m-0 p-0">I tuoi dati verranno criptati per garantire la tua privacy.</p>
 
       <button class="custom-btn mt-2 p-1" :disabled="!file" @click="encryptAndLoadData">Carica Dati</button>
     </div>
-
   </div>
 </template>
 
@@ -52,7 +47,6 @@ export default {
       contract: null,
 
       ethToPay: "0.1",
-
     };
   },
 
@@ -65,17 +59,36 @@ export default {
     ...mapGetters(['isClosed']),
   },
 
-
   methods: {
-    generateKey() {
-      const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let key = '';
-      for (let i = 0; i < 32; i++) {
-        const randomIndex = Math.floor(Math.random() * charset.length);
-        key += charset.charAt(randomIndex);
+    // Funzione di utilità per convertire un ArrayBuffer in Base64
+    arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.length;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
       }
-      this.encryptionKey = key;
-      console.log("Generated Encryption Key:", this.encryptionKey);
+      return window.btoa(binary);
+    },
+
+    // Genera la chiave di crittografia
+    async generateKey() {
+      // Crea una chiave AES a 256 bit
+      const key = await window.crypto.subtle.generateKey(
+        {
+          name: "AES-GCM",
+          length: 256, // Lunghezza della chiave (256 bit)
+        },
+        true, // La chiave può essere esportata
+        ["encrypt", "decrypt"] // Operazioni consentite con la chiave
+      );
+
+      // Converti la chiave in un formato leggibile (ad esempio, in base64)
+      const exportedKey = await window.crypto.subtle.exportKey("raw", key);
+      const exportedKeyBase64 = this.arrayBufferToBase64(exportedKey);
+    
+      console.log("Generated AES Key (Base64):", exportedKeyBase64);
+      this.encryptionKey = exportedKeyBase64; // Imposta la chiave nel data
     },
 
     // Gestisce il cambiamento del file
@@ -93,13 +106,13 @@ export default {
           this.file = null;
           this.invalidFile = true; // Mostra errore se il file non è .json
         }
-
       } else {
         this.selectedFileName = null;
         this.file = null;
       }
     },
 
+    // Funzione per cifrare il file
     async encryptFile() {
       try {
         if (!this.file) throw new Error("No file selected");
@@ -136,16 +149,13 @@ export default {
         console.log("File uploaded to IPFS with hash:", this.ipfsHash);
         
       } catch (error) {
-
         // emit event
         eventBus.emit('showAlertErrorLoad');
-
         console.error("Error uploading file to IPFS:", error);
       }
     },
 
-    
-    // Comunica allo Smart Contract la posizone dei dati su IPFS
+    // Comunica allo Smart Contract la posizione dei dati su IPFS
     async sendCIDToContract() {
       if (!this.ipfsHash) {
         console.log("ERRORE nel caricamento dei dati su SC");
@@ -155,7 +165,6 @@ export default {
       let provider, contract, signer, contractWithSigner;
 
       try {
-        
         provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
         contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
 
@@ -165,16 +174,10 @@ export default {
         const initialBalance = await provider.getBalance(this.userAddress);
         console.log(`Initial Balance: ${ethers.utils.formatEther(initialBalance)} ETH`);
 
-
         console.log("Sending CID to blockchain...");
-        //const ipfsHashBytes32 = this.ipfsHashToBytes32(this.ipfsHash);
-
         const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
           value: ethers.utils.parseEther(this.ethToPay)
         });
-
-        this.encryptedKey = await contractWithSigner.getEncryptedKey(this.ipfsHash);
-        console.log("Chiave caricata:", this.encryptedKey);
 
         console.log("Transaction sent:", tx);
         this.message = `Transaction sent: ${tx.hash}`;
@@ -204,35 +207,28 @@ export default {
 
         return;
       }
-      
     },
 
     // Codifica i dati dell'utente e li carica su IPFS
     async encryptAndLoadData() {
-      // notifica lo SC
-      
-      // lo SC condivide una chiave per cifrare i dati + dimensione dei blocchi
-      this.generateKey()
+
+      // genera chiave AES-256 per criptare file
+      await this.generateKey(); 
 
       // codifica dei dati
-
-      // caricamento dati su IPFS (dati suddivisi in blocchi)
-      await this.uploadToIpfs()
+      await this.uploadToIpfs();
       
       // comunicare allo SC la posizione dei dati su IPFS (CID)
       // pagamento della quota
-      await this.sendCIDToContract(this.ipfsHash)
-
+      await this.sendCIDToContract(this.ipfsHash);
     }
   }
 };
 </script>
 
 <style scoped>
-
 .disabled-label {
   opacity: 0.7;
   pointer-events: none; /* Impedisce il click */
 }
-
 </style>
