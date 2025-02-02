@@ -35,7 +35,7 @@ The platform enables users to participate in crowdsensing campaigns, submit data
 - **IPFS** for decentralized file storage.
 - **Solidity** for smart contract coding.
 - **Vue.js** for the user interface (UI).
-- **Node.js** for backend interaction.
+- **Node.js**, **Express.js** for backend interaction.
 
 ## Setup Instructions
 
