@@ -95,6 +95,106 @@ export default {
       const contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
 
       const files = await Promise.all(
+        this.hashToVerifyList.map(async (indexIpfsHash) => {
+            try {
+              // Recupera la struttura dati dei blocchi da IPFS
+              const stream = client.cat(indexIpfsHash);
+              let indexData = new Uint8Array();
+              for await (const chunk of stream) {
+                indexData = new Uint8Array([...indexData, ...chunk]);
+              }
+
+              const indexJson = JSON.parse(new TextDecoder().decode(indexData));
+              const blockHashes = indexJson.blocks; // Array di CID dei blocchi
+              console.log("Block Hashes:", blockHashes);
+              
+              // Recupera la chiave AES con la quale è stato criptato il file
+              const encryptedKey = await contract.getEncryptedKey(indexIpfsHash, this.userAddress);
+              console.log("GET Encrypted Key:", encryptedKey);
+
+              // Recupera e verifica ogni blocco
+              let signatureError = ''
+              let decryptedFileParts = [];
+              for (const blockHash of blockHashes) {
+                const blockStream = client.cat(blockHash);
+                let blockData = new Uint8Array();
+                for await (const chunk of blockStream) {
+                  blockData = new Uint8Array([...blockData, ...chunk]);
+                }
+
+                const blockJson = JSON.parse(new TextDecoder().decode(blockData));
+                const encryptedBlock = blockJson.block;
+                const signature = blockJson.signature;
+
+                console.log("ENCRYPTED BLOCK: ", encryptedBlock)
+
+                // Verifica la firma del blocco
+                // Calcola l'hash (digest) del blocco cifrato
+                const computedHash = await this.computeSHA256(encryptedBlock);
+                console.log("COMPUTED FILE DIGEST: ", computedHash);
+                // Ottieni l'indirizzo (chiave pubblica) originale di chi ha firmato
+                const recoveredSigner = ethers.utils.verifyMessage(computedHash, signature);
+                console.log("RECOVERED SIGNER ADDRESS: ", recoveredSigner);
+                // Recupera l'indirizzo (chiave pubblica) dell'utente che ha caricato tale hash
+                const userAddress = await contract.getOwnerAddress(indexIpfsHash);
+                console.log("USER ADDRESS: ", userAddress)
+
+                const isValid = recoveredSigner === userAddress;
+                console.log(`Blocco ${blockHash} - Firma valida?`, isValid);
+
+                if (!isValid) {
+                  console.warn(`Blocco ${blockHash} ha una firma non valida!`);
+                  return null;
+                }
+
+                if (isValid) {
+                  console.log("La firma è valida. Il file è autentico.");
+                } else {
+                  console.log("Firma non valida. Il file potrebbe essere stato manomesso.");
+                  signatureError = 'Attenzione! Il file potrebbe essere stato manomesso.';
+                }
+                
+                // Decripta il blocco
+                const decryptedBlock = this.decryptBlock(encryptedBlock, encryptedKey);
+                decryptedFileParts.push(decryptedBlock);
+                console.log("DECRYPTED BLOCK")
+                console.log(decryptedBlock)
+              }
+
+              // Ricostruire il file completo
+              const completeFile = new Uint8Array(decryptedFileParts.reduce((acc, part) => [...acc, ...part], []));
+              const blob = new Blob([completeFile], { type: "application/octet-stream" });
+
+              return { hash: indexIpfsHash, url: URL.createObjectURL(blob), signatureError: signatureError };
+
+            } catch (error) {
+              console.error(`Errore nel download del file IPFS con hash ${indexIpfsHash}:`, error);
+              return null;
+            }
+        })
+      );
+
+      this.fileToVerifyList = files.filter(file => file !== null);
+      await this.validateGeoDataForAllFiles();  // Esegui la validazione per ogni file caricato
+
+      return;
+
+    },
+    /*
+    async getUnverifiedFile2() {
+      await this.getUnverifiedHash();
+
+      if (this.hashToVerifyList.length === 0) {
+        console.log("Nessun file da validare");
+        this.fileToVerifyList = [];
+        return;
+      }
+
+      // Imposta il provider e il contratto una sola volta
+      const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+      const contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+
+      const files = await Promise.all(
         this.hashToVerifyList.map(async (ipfsHash) => {
             try {
 
@@ -160,6 +260,7 @@ export default {
       return;
 
     },
+    */
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -178,7 +279,7 @@ export default {
      * @param {string} key - Chiave di decrittografia
      * @returns {Uint8Array} - File decriptato come dati binari
      */
-    decryptFile(encryptedBase64, key) {
+    /*decryptFile(encryptedBase64, key) {
       try {
 
         console.log("Chiave passata:", key);
@@ -197,6 +298,30 @@ export default {
 
         // Ritorna i dati binari decriptati come Uint8Array
         return new Uint8Array(decryptedData);
+      } catch (error) {
+        console.error("Decryption error:", error);
+        throw error;
+      }
+    },
+    */
+    
+    decryptBlock(encryptedBase64, key) {
+      try {
+
+        // Decripta usando AES e la chiave fornita
+        const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
+
+        // Verifica se la decrittografia ha prodotto dei dati
+        if (!decryptedBytes || !decryptedBytes.words) {
+          throw new Error("Decryption failed. Check your key and data format.");
+        }
+        const decryptedBase64 = CryptoJS.enc.Utf8.stringify(decryptedBytes);
+
+        const byteCharacters = atob(decryptedBase64);
+        const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
+        const decryptedBlock = new Uint8Array(byteNumbers);
+
+        return decryptedBlock;
       } catch (error) {
         console.error("Decryption error:", error);
         throw error;
@@ -244,16 +369,20 @@ export default {
         const fileText  = await response.text();
 
         // Il contenuto può presentare caratteri speciali alla file
-        //console.log("Contenuto del file:", fileText);
+        console.log("Contenuto del file:", fileText);
 
         // Elimina eventuali caratteri extra (se presenti)
+        /*
         const cleanFileText = fileText.split('')
           .filter(c => c.charCodeAt(0) >= 32 || c.charCodeAt(0) === 9) // Mantiene solo caratteri visibili e tabulazione
           .join('');
+        
+        console.log("Contenuto del file CLEANED:", cleanFileText);
+        */
 
         // Parsing in Json
         try {
-          const parsedData = JSON.parse(cleanFileText);
+          const parsedData = JSON.parse(fileText);
           return parsedData;
         } catch (error) {
           console.error("Errore durante il parsing del file JSON:", error);

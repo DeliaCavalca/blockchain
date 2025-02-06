@@ -114,6 +114,7 @@ export default {
     },
 
     // Funzione per cifrare il file con la chiave AES
+    /*
     async encryptFile() {
       try {
         if (!this.file) throw new Error("No file selected");
@@ -131,7 +132,28 @@ export default {
         console.error("Error encrypting file:", error);
         throw error;
       }
+    },*/
+
+    async encryptBlock(block) {
+      try {
+        if (!this.encryptionKey) throw new Error("No encryption key provided");
+
+        console.log("Encrypting block...");
+
+        // Converte il blocco binario in stringa Base64
+        const blockWordArray = CryptoJS.lib.WordArray.create(block);
+        const blockBase64 = CryptoJS.enc.Base64.stringify(blockWordArray);
+
+        // Cifra il blocco con AES
+        const encryptedData = CryptoJS.AES.encrypt(blockBase64, this.encryptionKey).toString();
+
+        return encryptedData;
+      } catch (error) {
+        console.error("Errore nella cifratura:", error);
+        throw error;
+      }
     },
+
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -146,6 +168,80 @@ export default {
 
     // Carica il file su IPFS
     async uploadToIpfs() {
+      try {
+        if (!this.file) {
+          throw new Error("No file selected");
+        }
+
+        // Converti il file in un array di byte
+        const fileArrayBuffer = await this.file.arrayBuffer();
+        const fileUint8Array = new Uint8Array(fileArrayBuffer);
+
+        // Definisci la dimensione del blocco
+        const BLOCK_SIZE = Number(this.$store.state.chunkSize);
+        let blocks = [];
+
+        // recupera la chiave privata dell'utente
+        const user = accounts.find(acc => acc.address === this.userAddress);
+        const privateKey = user.privateKey;
+        const wallet = new ethers.Wallet(privateKey);
+        
+
+        // Cifra ogni blocco
+        for (let i = 0; i < fileUint8Array.length; i += BLOCK_SIZE) {
+            console.log("CODIFICA BLOCCO - ", i);
+            
+            // Estrai il blocco
+            let block = fileUint8Array.slice(i, i + BLOCK_SIZE);
+            console.log(block) // Unit8Array(256)
+
+            // Cifra il blocco con AES
+            let encryptedData = await this.encryptBlock(block);
+            console.log("ENCRYPTED BLOCK: ", encryptedData) // U2FsdGVkX19
+
+            // Calcola l'hash del blocco cifrato
+            let blockHash = await this.computeSHA256(encryptedData);
+            console.log("BLOCK DIGEST: ", blockHash)
+            // 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+
+            // Firma l'hash con la chiave privata dell'utente
+            let signature = await wallet.signMessage(blockHash);
+
+            // Crea un oggetto con il blocco cifrato + firma
+            let dataToUpload = {
+              block: encryptedData,
+              signature: signature
+            };
+
+            console.log("DATA TO UPLOAD")
+            console.log(dataToUpload)
+
+            // Converti in Blob e carica su IPFS
+            const dataBlob = new Blob([JSON.stringify(dataToUpload)], { type: "application/json" });
+            const added = await client.add(dataBlob);
+
+            // Salva l'hash IPFS del blocco
+            blocks.push(added.path);
+        }
+
+        // Salva la struttura dati dei blocchi su IPFS
+        const indexData = { blocks: blocks }; // Lista dei CID
+        const indexBlob = new Blob([JSON.stringify(indexData)], { type: "application/json" });
+        const indexAdded = await client.add(indexBlob);
+
+        this.ipfsHash = indexAdded.path; // CID del file contenente i blocchi
+
+
+        console.log("File uploaded to IPFS with hash:", this.ipfsHash);
+        
+      } catch (error) {
+        // emit event
+        eventBus.emit('showAlertErrorLoad');
+        console.error("Error uploading file to IPFS:", error);
+      }
+    },
+    /*
+    async uploadToIpfs2() {
       try {
         if (!this.file) {
           throw new Error("No file selected");
@@ -188,7 +284,7 @@ export default {
         eventBus.emit('showAlertErrorLoad');
         console.error("Error uploading file to IPFS:", error);
       }
-    },
+    },*/
 
     // Comunica allo Smart Contract la posizione dei dati su IPFS
     async sendCIDToContract() {
