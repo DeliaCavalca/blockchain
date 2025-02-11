@@ -84,6 +84,7 @@ contract Crowdsensing {
 
 
     // Funzione per caricare i dati su IPFS
+    // Attualmente NON viene passata la chiave, viene passata una stringa vuota
     function uploadData(string memory ipfsHash, string memory encryptionKey) public payable {
         require(msg.value == uploadFee, "Please pay the correct upload fee");
         require(bytes(encryptedData[ipfsHash]).length == 0, "Data already uploaded");
