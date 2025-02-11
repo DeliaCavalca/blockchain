@@ -12,6 +12,7 @@ export default createStore({
     ethBalance: null,    // ETH Balance of the User Logged
 
     status: null, // Status of the Crowdsensing
+    chunkSize: null, // Chunk Size for Data Storage
     
   },
   getters: {
@@ -33,6 +34,9 @@ export default createStore({
     },
     SET_STATUS(state, status) {
       state.status = status
+    },
+    SET_CHUNK_SIZE(state, chunkSize) {
+      state.chunkSize = chunkSize
     },
     
   },

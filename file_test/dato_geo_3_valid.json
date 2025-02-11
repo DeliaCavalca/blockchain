@@ -1,0 +1,30 @@
+{
+  "user_id": "0xA12BF45", 
+  "device_id": "device_123",
+  "data": [
+    {
+      "timestamp": "2025-01-30T12:00:00.000Z",
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "altitude": 15.3,
+      "speed": 5.2,
+      "accuracy": 3.5
+    },
+    {
+      "timestamp": "2025-01-30T12:01:00.000Z",
+      "latitude": 37.7750,
+      "longitude": -122.4195,
+      "altitude": 15.8,
+      "speed": 5.0,
+      "accuracy": 3.6
+    },
+    {
+      "timestamp": "2025-03-30T12:01:00.000Z",
+      "latitude": 37.7750,
+      "longitude": -122.4195,
+      "altitude": 15.8,
+      "speed": 5.0,
+      "accuracy": 3.6
+    }
+  ]
+}
