@@ -44,7 +44,7 @@ export default {
       invalidFile: false,
       selectedFileName: null,
       ipfsHash: "",
-      encryptionKey: "",
+      encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
       contract: null,
 
       ethToPay: "0.1",
@@ -54,6 +54,9 @@ export default {
   created() {
     this.contractAddress = this.$store.state.contractAddress
     this.userAddress = this.$store.state.userAddress
+
+    //this.generateKey()
+
   },
 
   computed: {
@@ -73,7 +76,9 @@ export default {
     },
 
     // Genera la chiave di crittografia
+    
     async generateKey() {
+      
       // Crea una chiave AES a 256 bit
       const key = await window.crypto.subtle.generateKey(
         {
@@ -88,7 +93,8 @@ export default {
       const exportedKey = await window.crypto.subtle.exportKey("raw", key);
       const exportedKeyBase64 = this.arrayBufferToBase64(exportedKey);
     
-      console.log("Generated AES Key (Base64):", exportedKeyBase64);
+      console.log("Generated AES Key (Base64):");
+      console.log(exportedKeyBase64)
       this.encryptionKey = exportedKeyBase64; // Imposta la chiave nel data
     },
 
@@ -197,12 +203,11 @@ export default {
 
             // Cifra il blocco con AES
             let encryptedData = await this.encryptBlock(block);
-            console.log("ENCRYPTED BLOCK: ", encryptedData) // U2FsdGVkX19
+            console.log("ENCRYPTED BLOCK: ", encryptedData) // U2FsdGVkX19DZD4L+2r97hdoaw2
 
             // Calcola l'hash del blocco cifrato
             let blockHash = await this.computeSHA256(encryptedData);
             console.log("BLOCK DIGEST: ", blockHash)
-            // 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
 
             // Firma l'hash con la chiave privata dell'utente
             let signature = await wallet.signMessage(blockHash);
@@ -307,7 +312,11 @@ export default {
 
         // Salva il CID e la chiave usata per criptare il file sullo Smart Contract
         console.log("Sending CID to blockchain...");
+        /*
         const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
+          value: ethers.utils.parseEther(this.ethToPay)
+        });*/
+        const tx = await contractWithSigner.uploadData(this.ipfsHash, "", {
           value: ethers.utils.parseEther(this.ethToPay)
         });
 
@@ -328,7 +337,6 @@ export default {
 
         this.file = null
         this.selectedFileName = null
-        this.encryptionKey = ""
         this.contract = null
         
       } catch (error) {
@@ -345,7 +353,7 @@ export default {
     async encryptAndLoadData() {
 
       // genera chiave AES-256 per criptare file
-      await this.generateKey(); 
+      //await this.generateKey(); 
 
       // codifica dei dati 
       // genera e firma del digest

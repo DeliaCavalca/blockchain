@@ -122,7 +122,7 @@ contract IPFSMessage {
 
     // Funzione per ottenere la chiave di cifratura di un dato
     function getEncryptedKey(string memory ipfsHash, address verifier) public view returns (string memory) {
-        require(users[verifier].role == Role.Verifier, "Only verifiers can get the keys");
+        require((users[verifier].role == Role.Verifier)||(users[verifier].role == Role.Admin), "Only verifiers/admin can get the keys");
         return encryptedData[ipfsHash];
     }
 
@@ -152,25 +152,51 @@ contract IPFSMessage {
         return unverifiedHashes;
     }
 
+    // Funzione per ottenere gli Hash dei dati validati
+    function getVerifiedData() public view returns (string[] memory) {
+        uint256 count = 0;
+        
+        // Conta quanti dati sono stati verificati
+        for (uint256 i = 0; i < uploadedHashes.length; i++) {
+            if (dataVerified[uploadedHashes[i]]) {
+                count++;
+            } 
+        }
+
+        // Crea un array della dimensione giusta
+        string[] memory verifiedHashes = new string[](count);
+        uint256 index = 0;
+
+        // Riempie l'array con gli hash verificati
+        for (uint256 i = 0; i < uploadedHashes.length; i++) {
+            if (dataVerified[uploadedHashes[i]]) {
+                verifiedHashes[index] = uploadedHashes[i];
+                index++;
+            }
+        }
+
+        return verifiedHashes;
+    }
+
 
     // Funzione per la verifica dei dati da parte dei verificatori
     // Controlla se raggiunto il numero minimo di dati verificati: se sì, Chiusura campagna
-    function verifyData(string memory ipfsHash, string memory encryptionKey, bool validationResult) public {
+    function verifyData(string memory ipfsHash, bool validationResult) public {
         
         // Verifica che l'utente sia un verificatore
         require(users[msg.sender].role == Role.Verifier, "Only verifiers can verify data");
 
-        require(bytes(encryptedData[ipfsHash]).length != 0, "Data not found");
+        //require(bytes(encryptedData[ipfsHash]).length != 0, "Data not found");
         
         // Verifica se il verificatore ha fornito la chiave corretta
-        bool isValid = keccak256(abi.encodePacked(encryptionKey)) == keccak256(abi.encodePacked(encryptedData[ipfsHash]));
+        //bool isValid = keccak256(abi.encodePacked(encryptionKey)) == keccak256(abi.encodePacked(encryptedData[ipfsHash]));
 
         // validationResult = risultato della validazione del contenuto del file
 
         // Ricompensa al verificatore
         rewardVerifier(msg.sender);
 
-        if (isValid && validationResult) {
+        if (validationResult) {
             dataVerified[ipfsHash] = true;
             verifiedCount++;
             emit DataVerified(ipfsHash, true);

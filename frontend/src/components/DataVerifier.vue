@@ -38,7 +38,8 @@ export default {
       userAddress: null, // Indirizzo dell'utente Ethereum
 
       ipfsHash: "",
-      encryptionKey: "",
+      encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
+
       hashToVerifyList: [],
       fileToVerifyList: [],
       processedFileUrl: null,
@@ -109,8 +110,9 @@ export default {
               console.log("Block Hashes:", blockHashes);
               
               // Recupera la chiave AES con la quale è stato criptato il file
-              const encryptedKey = await contract.getEncryptedKey(indexIpfsHash, this.userAddress);
-              console.log("GET Encrypted Key:", encryptedKey);
+              //const encryptedKey = await contract.getEncryptedKey(indexIpfsHash, this.userAddress);
+              //console.log("GET Encrypted Key:", encryptedKey);
+              const encryptedKey = this.encryptionKey;
 
               // Recupera e verifica ogni blocco
               let signatureError = ''
@@ -131,13 +133,13 @@ export default {
                 // Verifica la firma del blocco
                 // Calcola l'hash (digest) del blocco cifrato
                 const computedHash = await this.computeSHA256(encryptedBlock);
-                console.log("COMPUTED FILE DIGEST: ", computedHash);
+                //console.log("COMPUTED FILE DIGEST: ", computedHash);
                 // Ottieni l'indirizzo (chiave pubblica) originale di chi ha firmato
                 const recoveredSigner = ethers.utils.verifyMessage(computedHash, signature);
-                console.log("RECOVERED SIGNER ADDRESS: ", recoveredSigner);
+                //console.log("RECOVERED SIGNER ADDRESS: ", recoveredSigner);
                 // Recupera l'indirizzo (chiave pubblica) dell'utente che ha caricato tale hash
                 const userAddress = await contract.getOwnerAddress(indexIpfsHash);
-                console.log("USER ADDRESS: ", userAddress)
+                //console.log("USER ADDRESS: ", userAddress)
 
                 const isValid = recoveredSigner === userAddress;
                 console.log(`Blocco ${blockHash} - Firma valida?`, isValid);
@@ -279,7 +281,7 @@ export default {
      * @param {string} key - Chiave di decrittografia
      * @returns {Uint8Array} - File decriptato come dati binari
      */
-    /*decryptFile(encryptedBase64, key) {
+    decryptFile(encryptedBase64, key) {
       try {
 
         console.log("Chiave passata:", key);
@@ -303,25 +305,49 @@ export default {
         throw error;
       }
     },
-    */
+    
     
     decryptBlock(encryptedBase64, key) {
       try {
 
+        console.log("DECRYPT BLOCK.....")
+        console.log(encryptedBase64)
+
         // Decripta usando AES e la chiave fornita
         const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
+        /*console.log(decryptedBytes)
 
         // Verifica se la decrittografia ha prodotto dei dati
         if (!decryptedBytes || !decryptedBytes.words) {
           throw new Error("Decryption failed. Check your key and data format.");
         }
-        const decryptedBase64 = CryptoJS.enc.Utf8.stringify(decryptedBytes);
 
+        const decryptedBase64 = CryptoJS.enc.Utf8.stringify(decryptedBytes);
+        
         const byteCharacters = atob(decryptedBase64);
         const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
         const decryptedBlock = new Uint8Array(byteNumbers);
 
-        return decryptedBlock;
+        return decryptedBlock;*/
+
+        const decryptedBase64 = decryptedBytes.toString(CryptoJS.enc.Utf8);
+
+        if (!decryptedBase64) {
+          throw new Error("Decryption failed. Possibly incorrect key.");
+        }
+
+        // Converte la stringa Base64 in un array di byte
+        const decryptedWordArray = CryptoJS.enc.Base64.parse(decryptedBase64);
+        const decryptedUint8Array = new Uint8Array(decryptedWordArray.words.length * 4);
+
+        for (let i = 0; i < decryptedWordArray.words.length; i++) {
+            decryptedUint8Array[i * 4] = (decryptedWordArray.words[i] >> 24) & 0xff;
+            decryptedUint8Array[i * 4 + 1] = (decryptedWordArray.words[i] >> 16) & 0xff;
+            decryptedUint8Array[i * 4 + 2] = (decryptedWordArray.words[i] >> 8) & 0xff;
+            decryptedUint8Array[i * 4 + 3] = decryptedWordArray.words[i] & 0xff;
+        }
+
+        return decryptedUint8Array;
       } catch (error) {
         console.error("Decryption error:", error);
         throw error;
@@ -372,17 +398,17 @@ export default {
         console.log("Contenuto del file:", fileText);
 
         // Elimina eventuali caratteri extra (se presenti)
-        /*
+        
         const cleanFileText = fileText.split('')
           .filter(c => c.charCodeAt(0) >= 32 || c.charCodeAt(0) === 9) // Mantiene solo caratteri visibili e tabulazione
           .join('');
         
         console.log("Contenuto del file CLEANED:", cleanFileText);
-        */
+        
 
         // Parsing in Json
         try {
-          const parsedData = JSON.parse(fileText);
+          const parsedData = JSON.parse(cleanFileText);
           return parsedData;
         } catch (error) {
           console.error("Errore durante il parsing del file JSON:", error);
@@ -403,16 +429,7 @@ export default {
         
         // Verifica se presente il campo "data"
         if (fileContent && Array.isArray(fileContent.data)) {
-          // Passa l'array 'data' alla funzione di validazione
-          const validationResult = this.validateGeoDataFormat(fileContent.data); // Passa l'array "data" alla funzione di validazione
-
-          if (!validationResult.isValid) {
-            console.log("Errore di validazione:", validationResult.message);
-            return false
-          } else {
-            console.log("I dati sono validi.");
-            return true
-          }
+          return true
         } else {
           console.error("Il campo 'data' non è presente o non è un array.");
           return false
@@ -452,63 +469,6 @@ export default {
       }, 100);
     },
 
-    // Verifica se il contenuto del file è valido
-    validateGeoDataFormat(fileContent) {
-      // Verifica che il file non sia vuoto
-      if (!fileContent || fileContent.length === 0) {
-        return { isValid: false, message: 'Il file è vuoto.' };
-      }
-
-      // Funzione per validare la struttura di ciascun oggetto
-      const validateEntry = (entry) => {
-        //console.log("Entry: ", entry)
-
-        // Verifica la presenza dei campi obbligatori
-        if (!entry.timestamp || !entry.latitude || !entry.longitude || !entry.speed || !entry.accuracy) {
-          return { isValid: false, message: 'Mancano campi obbligatori nel file.' };
-        }
-
-        // Verifica che il timestamp sia nel formato ISO 8601
-        if (!isValidTimestamp(entry.timestamp)) {
-          return { isValid: false, message: `Timestamp non valido: ${entry.timestamp}` };
-        }
-
-        // Verifica che latitude e longitude siano nel range corretto
-        if (entry.latitude < -90 || entry.latitude > 90 || entry.longitude < -180 || entry.longitude > 180) {
-          return { isValid: false, message: `Coordinate non valide: ${entry.latitude}, ${entry.longitude}` };
-        }
-
-        // Verifica che speed e accuracy siano numerici
-        if (typeof entry.speed !== 'number' || typeof entry.accuracy !== 'number') {
-          return { isValid: false, message: `Speed o accuracy non numerici: ${entry.speed}, ${entry.accuracy}` };
-        }
-
-        // Se l'altitude è presente, deve essere numerico
-        if (entry.altitude && typeof entry.altitude !== 'number') {
-          return { isValid: false, message: `Altitude non numerico: ${entry.altitude}` };
-        }
-
-        return { isValid: true };
-      };
-
-      // Funzione per validare il formato del timestamp (ISO 8601)
-      function isValidTimestamp(timestamp) {
-        const date = new Date(timestamp);
-        return !isNaN(date.getTime()) && timestamp === date.toISOString();
-      }
-
-      // Esegui la validazione su ciascun elemento dei dati
-      for (const entry of fileContent) {
-        const result = validateEntry(entry);
-        if (!result.isValid) {
-          return result; // Ritorna il primo errore trovato
-        }
-      }
-
-      // Se tutti i dati sono validi
-      return { isValid: true, message: 'Dati validi.' };
-    },
-
 
     // Valida un file
     async validateFile(hash, validationResult) {
@@ -525,12 +485,8 @@ export default {
         contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
 
         // Ottieni la Chiave
-        const key = await contract.getEncryptedKey(hash, this.userAddress);
-
-        if(!key) {
-          console.log("Errore durante la validazione. Key non valida.");
-          return;
-        }
+        //const key = await contract.getEncryptedKey(hash, this.userAddress);
+        
 
         signer = provider.getSigner(this.userAddress);
         contractWithSigner = contract.connect(signer);
@@ -545,7 +501,7 @@ export default {
         // Valida il File
         // Rimborso al'utente che ha caricato i dati, se validationResult=true
         // Ricompensa al verficatore
-        const tx = await contractWithSigner.verifyData(hash, key, validationResult);
+        const tx = await contractWithSigner.verifyData(hash, validationResult);
         console.log("Transaction hash:", tx.hash);
         await tx.wait();
 

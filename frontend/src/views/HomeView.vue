@@ -89,6 +89,14 @@
         
         <DataManager />
     </div>
+    <div class="border mt-3 p-3" v-if="isAdmin && isClosed" style="border-radius: 6px;">
+        <p class="m-0 p-0" style="font-weight: bold; text-align: left;">Dati Caricati</p>
+        <p class="m-0 p-0 mb-3" style="text-align: left; font-size: 13px;">
+            Lista file caricati sulla piattaforma.
+        </p>
+        
+        <FileUploaded />
+    </div>
 
   
 </template>
@@ -102,12 +110,13 @@ import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IP
 import DataUploader from '../components/DataUploader.vue';
 import DataVerifier from '../components/DataVerifier.vue';
 import DataManager from '../components/DataManager.vue';
+import FileUploaded from '../components/FileUploaded.vue';
 import SettingsManager from '../components/SettingsManager.vue';
 
 export default {
     name: 'HomeView',
     components: {
-        DataUploader, DataVerifier, DataManager, SettingsManager
+        DataUploader, DataVerifier, DataManager, SettingsManager, FileUploaded
     },
   
     data() {
