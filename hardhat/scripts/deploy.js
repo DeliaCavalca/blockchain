@@ -13,17 +13,17 @@ async function main() {
         accounts_address[i] = accounts[i].address
     }
 
-    // Get the contract factory for the 'IPFSMessage' contract
-    const IPFSMessage = await ethers.getContractFactory("IPFSMessage");
+    // Get the contract factory for the 'Crowdsensing' contract
+    const Crowdsensing = await ethers.getContractFactory("Crowdsensing");
     // Deploy the contract to the network: deploy with 10 ETH
-    const ipfsMessage = await IPFSMessage.deploy(accounts_address, {
+    const crowdsensing = await Crowdsensing.deploy(accounts_address, {
         value: ethers.parseEther("10")
     });
 
-    await ipfsMessage.waitForDeployment();
+    await crowdsensing.waitForDeployment();
     
     // Address of the contract
-    console.log("Contract deployed to:", ipfsMessage.target);
+    console.log("Contract deployed to:", crowdsensing.target);
 }
 
 main()

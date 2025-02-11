@@ -105,7 +105,7 @@
 import { mapGetters } from 'vuex'
 import eventBus from '@/eventBus';
 import { ethers } from 'ethers';
-import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
+import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; // Percorso corretto
 
 import DataUploader from '../components/DataUploader.vue';
 import DataVerifier from '../components/DataVerifier.vue';

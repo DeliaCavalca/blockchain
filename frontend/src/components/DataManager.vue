@@ -42,7 +42,7 @@
   
 <script>
 import { ethers } from 'ethers';
-import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
+import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; // Percorso corretto
 
 export default {
     name: 'DataManager',

@@ -14,7 +14,7 @@
 <script>
 import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
-import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
+import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; // Percorso corretto
 import CryptoJS from "crypto-js";
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
@@ -27,7 +27,7 @@ export default {
         userAddress: null, // Indirizzo dell'utente Ethereum
         
         encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
-        
+
         hashList: [],
         fileList: [],
       };

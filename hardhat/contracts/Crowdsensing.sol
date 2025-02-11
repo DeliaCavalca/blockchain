@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract IPFSMessage {
+contract Crowdsensing {
 
     // Ruoli per gli User
     enum Role { User, Verifier, Admin }

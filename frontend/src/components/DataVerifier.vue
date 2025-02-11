@@ -25,7 +25,7 @@
 <script>
 import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
-import DataStorage from "../../../hardhat/artifacts/contracts/IPFSMessage.sol/IPFSMessage.json"; // Percorso corretto
+import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; // Percorso corretto
 import eventBus from '@/eventBus';
 import CryptoJS from "crypto-js";
 
