@@ -316,6 +316,7 @@ export default {
         const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
           value: ethers.utils.parseEther(this.ethToPay)
         });*/
+        // Non invia la chiave allo Smart Contract
         const tx = await contractWithSigner.uploadData(this.ipfsHash, "", {
           value: ethers.utils.parseEther(this.ethToPay)
         });
