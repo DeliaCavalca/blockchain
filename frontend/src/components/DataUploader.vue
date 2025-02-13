@@ -44,7 +44,7 @@ export default {
       invalidFile: false,
       selectedFileName: null,
       ipfsHash: "",
-      //encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
+      encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
       contract: null,
 
       ethToPay: "0.1",
@@ -110,7 +110,7 @@ export default {
         const blockBase64 = CryptoJS.enc.Base64.stringify(blockWordArray);
 
         // Cifra il blocco con AES
-        const encryptedData = CryptoJS.AES.encrypt(blockBase64, key).toString();
+        const encryptedData = CryptoJS.AES.encrypt(blockBase64, this.encryptionKey).toString();
 
         return encryptedData;
       } catch (error) {
@@ -162,7 +162,7 @@ export default {
 
             // Cifra il blocco con AES
             console.log("KEY: ", key)
-            let encryptedData = await this.encryptBlock(block, key+"");
+            let encryptedData = await this.encryptBlock(block, key);
             console.log("ENCRYPTED BLOCK: ", encryptedData) 
 
             // Calcola l'hash del blocco cifrato
@@ -371,7 +371,6 @@ export default {
       
       return encrypted
     },
-    
 
     // decodifica la chiave per la codifica del file con la chiave privata dell'utente
     async decryptKey(K_ciphered, privateKey) {
