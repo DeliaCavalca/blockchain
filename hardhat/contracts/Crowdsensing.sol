@@ -18,6 +18,16 @@ contract Crowdsensing {
     address[] public userAddresses;
 
 
+
+    // Chiave pubblica dell'utente che vuole caricare un file su IPFS
+    event UserEnrolled(address indexed user, string publicKey);
+    mapping(address => string) public userPublicKeys;
+    // Chiave per la codifica dei dati
+    event KeySent(address indexed user, string encryptedKey);
+    mapping(address => string) public encryptedKeys;
+
+
+
     // Mappature per memorizzare i dati degli utenti e dei verificatori
     mapping(string => mapping(address => uint256)) public filePayments;
     mapping(string => string) public encryptedData;
@@ -95,6 +105,25 @@ contract Crowdsensing {
 
         uploadedHashes.push(ipfsHash); // Aggiunge l'hash alla lista
         emit DataUploaded(msg.sender, ipfsHash);
+    }
+
+    // Funzione per l'invio della chiave pubblica da parte dell'utente
+    function uploadPublicKey(string memory publicKey) public {
+        
+        // Salva la chiave pubblica dell'utente
+        userPublicKeys[msg.sender] = publicKey;
+
+        emit UserEnrolled(msg.sender, publicKey);
+    }
+
+    function getUserPublicKey(address user) public view returns (string memory) {
+        return userPublicKeys[user];
+    }
+
+    // Funzione per l'invio della chiave per cifrare i dati
+    function sendEncryptedKey(address user, string memory encryptedKey) public {
+        encryptedKeys[user] = encryptedKey;
+        emit KeySent(user, encryptedKey);
     }
 
     // Funzione per ottenere l'indirizzo del proprietario dei dati

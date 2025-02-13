@@ -11,5 +11,6 @@ module.exports = defineConfig({
     },
     allowedHosts: 'all', // Consenti connessioni da qualsiasi dominio (utile in sviluppo)
   },
-});
 
+  
+});

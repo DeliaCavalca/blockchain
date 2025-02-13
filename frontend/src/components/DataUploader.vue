@@ -30,7 +30,7 @@ import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/C
 import eventBus from '@/eventBus';
 import CryptoJS from "crypto-js";
 import { mapGetters } from 'vuex'
-import accounts from "@/assets/hardhat-accounts.json"; 
+import accounts from "@/assets/hardhat-accounts.json";
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 
@@ -44,18 +44,19 @@ export default {
       invalidFile: false,
       selectedFileName: null,
       ipfsHash: "",
-      encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
+      //encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
       contract: null,
 
       ethToPay: "0.1",
+
+      publicKey: '',
+      privateKey: '',
     };
   },
 
   created() {
     this.contractAddress = this.$store.state.contractAddress
     this.userAddress = this.$store.state.userAddress
-
-    //this.generateKey()
 
   },
 
@@ -75,29 +76,7 @@ export default {
       return window.btoa(binary);
     },
 
-    // Genera la chiave di crittografia
-    
-    async generateKey() {
-      
-      // Crea una chiave AES a 256 bit
-      const key = await window.crypto.subtle.generateKey(
-        {
-          name: "AES-GCM",
-          length: 256, // Lunghezza della chiave (256 bit)
-        },
-        true, // La chiave può essere esportata
-        ["encrypt", "decrypt"] // Operazioni consentite con la chiave
-      );
-
-      // Converti la chiave in un formato leggibile (ad esempio, in base64)
-      const exportedKey = await window.crypto.subtle.exportKey("raw", key);
-      const exportedKeyBase64 = this.arrayBufferToBase64(exportedKey);
-    
-      console.log("Generated AES Key (Base64):");
-      console.log(exportedKeyBase64)
-      this.encryptionKey = exportedKeyBase64; // Imposta la chiave nel data
-    },
-
+   
     // Gestisce il cambiamento del file
     onFileChange(event) {
       const file = event.target.files[0]; // Ottieni il file selezionato
@@ -119,30 +98,10 @@ export default {
       }
     },
 
-    // Funzione per cifrare il file con la chiave AES
-    /*
-    async encryptFile() {
-      try {
-        if (!this.file) throw new Error("No file selected");
-        if (!this.encryptionKey) throw new Error("No encryption key provided");
 
-        console.log("Encrypting text file...");
-        const fileContent = await this.file.text();
-        const encryptedData = CryptoJS.AES.encrypt(fileContent, this.encryptionKey).toString();
-        console.log("File encrypted successfully!");
-        console.log("encryptedData:", encryptedData);
-        //return new Blob([encryptedData], { type: "text/plain" });
-        return encryptedData;
-      } catch (error) {
-        this.message = "Error encrypting file.";
-        console.error("Error encrypting file:", error);
-        throw error;
-      }
-    },*/
-
-    async encryptBlock(block) {
+    async encryptBlock(block, key) {
       try {
-        if (!this.encryptionKey) throw new Error("No encryption key provided");
+        if (!key) throw new Error("No encryption key provided");
 
         console.log("Encrypting block...");
 
@@ -151,7 +110,7 @@ export default {
         const blockBase64 = CryptoJS.enc.Base64.stringify(blockWordArray);
 
         // Cifra il blocco con AES
-        const encryptedData = CryptoJS.AES.encrypt(blockBase64, this.encryptionKey).toString();
+        const encryptedData = CryptoJS.AES.encrypt(blockBase64, key).toString();
 
         return encryptedData;
       } catch (error) {
@@ -173,7 +132,7 @@ export default {
     },
 
     // Carica il file su IPFS
-    async uploadToIpfs() {
+    async uploadToIpfs(key) {
       try {
         if (!this.file) {
           throw new Error("No file selected");
@@ -202,8 +161,9 @@ export default {
             console.log(block) // Unit8Array(256)
 
             // Cifra il blocco con AES
-            let encryptedData = await this.encryptBlock(block);
-            console.log("ENCRYPTED BLOCK: ", encryptedData) // U2FsdGVkX19DZD4L+2r97hdoaw2
+            console.log("KEY: ", key)
+            let encryptedData = await this.encryptBlock(block, key+"");
+            console.log("ENCRYPTED BLOCK: ", encryptedData) 
 
             // Calcola l'hash del blocco cifrato
             let blockHash = await this.computeSHA256(encryptedData);
@@ -245,51 +205,7 @@ export default {
         console.error("Error uploading file to IPFS:", error);
       }
     },
-    /*
-    async uploadToIpfs2() {
-      try {
-        if (!this.file) {
-          throw new Error("No file selected");
-        }
-
-        // codifica il file con la chiave AES
-        const encryptedBlob = await this.encryptFile();
-        
-        // calcolo hash (SHA-256) del file: genera il digest
-        const fileHash = await this.computeSHA256(encryptedBlob);
-        console.log("FILE DIGEST: ", fileHash);
-
-        // recupera la chiave privata dell'utente
-        const user = accounts.find(acc => acc.address === this.userAddress);
-        const privateKey = user.privateKey;
-        // firma del digest con la chiave privata dell'utente
-        const wallet = new ethers.Wallet(privateKey);
-        const signature = await wallet.signMessage(fileHash);
-        //console.log("SIGNATURE: ", signature);
-
-
-        // Caricamento dati su IPFS: file cifrato + firma del digest
-        const dataToUpload = {
-          file: encryptedBlob,     // File cifrato
-          signature: signature     // Firma del digest
-        };
-        console.log("DATA TO UPLOAD")
-        console.log(dataToUpload)
-        const dataBlob = new Blob([JSON.stringify(dataToUpload)], { type: "application/json" });
-        
-        // Caricamento dati su IPFS
-        const added = await client.add(dataBlob);
-        // IPFS Hash (CID): posizione in cui sono stati salvati i dati
-        this.ipfsHash = added.path; // Salva l'hash IPFS del file caricato
-
-        console.log("File uploaded to IPFS with hash:", this.ipfsHash);
-        
-      } catch (error) {
-        // emit event
-        eventBus.emit('showAlertErrorLoad');
-        console.error("Error uploading file to IPFS:", error);
-      }
-    },*/
+    
 
     // Comunica allo Smart Contract la posizione dei dati su IPFS
     async sendCIDToContract() {
@@ -312,10 +228,7 @@ export default {
 
         // Salva il CID e la chiave usata per criptare il file sullo Smart Contract
         console.log("Sending CID to blockchain...");
-        /*
-        const tx = await contractWithSigner.uploadData(this.ipfsHash, this.encryptionKey, {
-          value: ethers.utils.parseEther(this.ethToPay)
-        });*/
+        
         // Non invia la chiave allo Smart Contract
         const tx = await contractWithSigner.uploadData(this.ipfsHash, "", {
           value: ethers.utils.parseEther(this.ethToPay)
@@ -353,18 +266,124 @@ export default {
     // Codifica i dati dell'utente e li carica su IPFS
     async encryptAndLoadData() {
 
-      // genera chiave AES-256 per criptare file
-      //await this.generateKey(); 
-
-      // codifica dei dati 
-      // genera e firma del digest
-      // upload su IPFS: file + firma
-      await this.uploadToIpfs();
+      // l'utente genera una nuova coppia di chiavi privata-pubblica
+      const keys = await this.generateKeyPair()
+      console.log("CHIAVI GENERATE")
+      console.log(keys)
+      this.publicKey = keys.publicKey
+      this.privateKey = keys.privateKey
       
-      // comunicare allo SC la posizione dei dati su IPFS (CID)
-      // pagamento della quota
-      await this.sendCIDToContract(this.ipfsHash);
-    }
+
+      // notifica lo SC che vuole mandare il file, inviando la sua chiave pubblica
+      await this.sendPublicKeyToContract()
+
+    },
+
+    // Genera una coppia di chiavi pubblica-privata
+    async generateKeyPair() {
+      // Genera un nuovo wallet
+      const wallet = ethers.Wallet.createRandom();
+      
+      // Estrai la chiave privata e l'indirizzo (chiave pubblica)
+      const privateKey = wallet.privateKey;
+      //console.log(privateKey)
+      const publicKey = wallet.address;
+      //console.log(publicKey)
+      
+      return {
+        privateKey: privateKey,
+        publicKey: publicKey
+      };
+    },
+
+    // Comunica allo Smart Contract la chiave pubblica
+    async sendPublicKeyToContract() {
+      
+      let provider, contract, signer, contractWithSigner;
+
+      try {
+        provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+        contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
+
+        signer = provider.getSigner(this.userAddress);
+        contractWithSigner = contract.connect(signer);
+
+        console.log("Sending Public Key to Contract...")
+        const tx = await contractWithSigner.uploadPublicKey(this.publicKey);
+        await tx.wait();
+        console.log("SENT SUCCESSFULLY!");
+
+        // Operazioni svolte dall'ADMIN
+        // Admin in ascolto dell'evento "UserEnrolled" dallo SC
+        contract.on("UserEnrolled", async (user, publicKey) => {
+          signer = provider.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Admin Address
+          contractWithSigner = contract.connect(signer);
+
+          console.log(`Nuovo utente logged: ${user}, Chiave pubblica: ${publicKey}`);
+          // l'Admin ottiene la chiave pubblica dell'utente
+          // cifra la encryptionKey con la chiave pubblica dell'utente
+          const encryptionKey = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo="
+          const encryptedKey = await this.encryptKey(encryptionKey, publicKey);
+          //console.log(encryptedKey)
+
+          // invia encryptedKey allo SC
+          console.log("Sending Encripted Key to Contract...")
+          const tx = await contractWithSigner.sendEncryptedKey(this.userAddress, encryptedKey);
+          await tx.wait();
+          console.log("SENT SUCCESSFULLY!");
+
+        });
+
+        // Operazioni svolte dall'Utente
+        // User in ascolto dell'evento "KeySent" dallo SC
+        contract.on("KeySent", async (user, encryptedKey) => {
+          signer = provider.getSigner(this.userAddress);
+          contractWithSigner = contract.connect(signer);
+
+          console.log(`EncryptedKey: ${encryptedKey}`);
+          
+          // l'utente decifra la encryptedKey con la sua chiave privata
+          const decryptedKey = await this.decryptKey(encryptedKey, this.publicKey);
+          console.log(`decryptedKey: ${decryptedKey}`);
+          
+          // l'utente cifra i dati e li carica su IPFS
+          await this.uploadToIpfs(decryptedKey);
+
+          // comunicare allo SC la posizione dei dati su IPFS (CID)
+          await this.sendCIDToContract(this.ipfsHash);
+
+        });
+
+      } catch (error) {
+        console.error("Error connecting to Ethereum provider:", error);
+        return;
+      }
+    },
+
+    // codifica la chiave per la codifica del file con la chiave pubblica dell'utente
+    async encryptKey(K, publicKey) {
+
+      console.log('K:', K);
+      console.log('PK_A:', publicKey);
+
+      const encrypted = CryptoJS.AES.encrypt(K, publicKey).toString(); // Cifra la chiave con AES
+      console.log("Encrypted Key:", encrypted);
+      
+      return encrypted
+    },
+    
+
+    // decodifica la chiave per la codifica del file con la chiave privata dell'utente
+    async decryptKey(K_ciphered, privateKey) {
+      const bytes = CryptoJS.AES.decrypt(K_ciphered, privateKey); 
+      const decrypted = bytes.toString(CryptoJS.enc.Utf8); // Decifra il risultato
+
+      console.log("Decrypted Key:", decrypted);
+      
+      return decrypted
+    },
+
+
   }
 };
 </script>

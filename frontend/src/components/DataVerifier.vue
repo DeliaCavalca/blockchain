@@ -157,7 +157,7 @@ export default {
                 }
                 
                 // Decripta il blocco
-                const decryptedBlock = this.decryptBlock(encryptedBlock, encryptedKey);
+                const decryptedBlock = await this.decryptBlock(encryptedBlock, encryptedKey);
                 decryptedFileParts.push(decryptedBlock);
                 console.log("DECRYPTED BLOCK")
                 console.log(decryptedBlock)
@@ -182,87 +182,7 @@ export default {
       return;
 
     },
-    /*
-    async getUnverifiedFile2() {
-      await this.getUnverifiedHash();
 
-      if (this.hashToVerifyList.length === 0) {
-        console.log("Nessun file da validare");
-        this.fileToVerifyList = [];
-        return;
-      }
-
-      // Imposta il provider e il contratto una sola volta
-      const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
-      const contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
-
-      const files = await Promise.all(
-        this.hashToVerifyList.map(async (ipfsHash) => {
-            try {
-
-              // Recupera la chiave AES con la quale è stato criptato il file
-              const encryptedKey = await contract.getEncryptedKey(ipfsHash, this.userAddress);
-              console.log("GET Encrypted Key:", encryptedKey);
-
-              // Recupera i dati da IPFS, usando il CID
-              const stream = client.cat(ipfsHash);
-              
-              let data = new Uint8Array();
-              for await (const chunk of stream) {
-                data = new Uint8Array([...data, ...chunk]); // Concatena i chunk ricevuti
-              }
-
-              // Converte i dati in stringa JSON
-              const fileData = JSON.parse(new TextDecoder().decode(data));
-              //console.log("File Data:", fileData);
-              // Estrai il file cifrato e la firma dal file JSON
-              const encryptedFile = fileData.file;
-              const signature = fileData.signature;
-
-              
-              // Calcola l'hash (digest) del file cifrato
-              const computedHash = await this.computeSHA256(encryptedFile);
-              console.log("COMPUTED FILE DIGEST: ", computedHash);
-              // Ottieni l'indirizzo (chiave pubblica) originale di chi ha firmato
-              const recoveredSigner = ethers.utils.verifyMessage(computedHash, signature);
-              console.log("RECOVERED SIGNER ADDRESS: ", recoveredSigner);
-              
-              // Recupera l'indirizzo (chiave pubblica) dell'utente che ha caricato tale hash
-              const userAddress = await contract.getOwnerAddress(ipfsHash); 
-              console.log("USER ADDRESS: ", userAddress)
-              
-               
-              const isValid = recoveredSigner === userAddress;
-              console.log("FIRMA VALIDA?", isValid);
-
-              let signatureError = ''
-              if (isValid) {
-                console.log("La firma è valida. Il file è autentico.");
-              } else {
-                console.log("Firma non valida. Il file potrebbe essere stato manomesso.");
-                signatureError = 'Attenzione! Il file potrebbe essere stato manomesso.';
-              }
-
-              // Decifra il file, usando la sua chiave AES
-              const decryptedData = this.decryptFile(encryptedFile, encryptedKey);
-              const blob = new Blob([decryptedData], { type: "application/octet-stream" });
-              
-              return { hash: ipfsHash, url: URL.createObjectURL(blob), signatureError: signatureError };
-
-            } catch (error) {
-              console.error(`Errore nel download del file IPFS con hash ${ipfsHash}:`, error);
-              return null;
-            }
-        })
-      );
-
-      this.fileToVerifyList = files.filter(file => file !== null);
-      await this.validateGeoDataForAllFiles();  // Esegui la validazione per ogni file caricato
-
-      return;
-
-    },
-    */
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -307,31 +227,28 @@ export default {
     },
     
     
-    decryptBlock(encryptedBase64, key) {
+    async decryptBlock(encryptedBase64, key) {
       try {
+        console.log("DECRYPT BLOCK.....");
+        console.log(encryptedBase64);
 
-        console.log("DECRYPT BLOCK.....")
-        console.log(encryptedBase64)
+        // Verifica che i dati cifrati siano una stringa Base64 valida
+        const base64Regex = /^[A-Za-z0-9+/=]+$/;
+        if (!base64Regex.test(encryptedBase64)) {
+          throw new Error("Encrypted data is not in valid Base64 format.");
+        }
 
         // Decripta usando AES e la chiave fornita
         const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
-        /*console.log(decryptedBytes)
+        console.log(decryptedBytes);
 
         // Verifica se la decrittografia ha prodotto dei dati
         if (!decryptedBytes || !decryptedBytes.words) {
           throw new Error("Decryption failed. Check your key and data format.");
         }
 
-        const decryptedBase64 = CryptoJS.enc.Utf8.stringify(decryptedBytes);
-        
-        const byteCharacters = atob(decryptedBase64);
-        const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
-        const decryptedBlock = new Uint8Array(byteNumbers);
-
-        return decryptedBlock;*/
-
         const decryptedBase64 = decryptedBytes.toString(CryptoJS.enc.Utf8);
-
+        
         if (!decryptedBase64) {
           throw new Error("Decryption failed. Possibly incorrect key.");
         }
@@ -341,18 +258,20 @@ export default {
         const decryptedUint8Array = new Uint8Array(decryptedWordArray.words.length * 4);
 
         for (let i = 0; i < decryptedWordArray.words.length; i++) {
-            decryptedUint8Array[i * 4] = (decryptedWordArray.words[i] >> 24) & 0xff;
-            decryptedUint8Array[i * 4 + 1] = (decryptedWordArray.words[i] >> 16) & 0xff;
-            decryptedUint8Array[i * 4 + 2] = (decryptedWordArray.words[i] >> 8) & 0xff;
-            decryptedUint8Array[i * 4 + 3] = decryptedWordArray.words[i] & 0xff;
+          decryptedUint8Array[i * 4] = (decryptedWordArray.words[i] >> 24) & 0xff;
+          decryptedUint8Array[i * 4 + 1] = (decryptedWordArray.words[i] >> 16) & 0xff;
+          decryptedUint8Array[i * 4 + 2] = (decryptedWordArray.words[i] >> 8) & 0xff;
+          decryptedUint8Array[i * 4 + 3] = decryptedWordArray.words[i] & 0xff;
         }
 
         return decryptedUint8Array;
+
       } catch (error) {
         console.error("Decryption error:", error);
         throw error;
       }
     },
+
 
     /**
      * Converte un array di parole (CryptoJS) in un array di byte
