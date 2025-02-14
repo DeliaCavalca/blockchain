@@ -271,6 +271,7 @@ export default {
 
     // Codifica i dati dell'utente e li carica su IPFS
     async encryptAndLoadData() {
+      this.$store.commit('SET_UPLOADING', true);
 
       // l'utente genera una nuova coppia di chiavi privata-pubblica
       const keys = await this.generateKeyPair()
@@ -365,6 +366,8 @@ export default {
             // comunicare allo SC la posizione dei dati su IPFS (CID)
             await this.sendCIDToContract(this.ipfsHash);
             console.log("USER: CID SENT TO CONTRACT");
+
+            this.$store.commit('SET_UPLOADING', false);
           }
 
           this.adminKeySent = false

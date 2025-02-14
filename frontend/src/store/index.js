@@ -13,6 +13,8 @@ export default createStore({
 
     status: null, // Status of the Crowdsensing
     chunkSize: null, // Chunk Size for Data Storage
+
+    uploading: false, 
     
   },
   getters: {
@@ -21,6 +23,7 @@ export default createStore({
     isVerifier: (state) => state.userRole == "Verifier",
     ethBalance: (state) => state.ethBalance,
     isClosed: (state) => state.status == "Closed",
+    uploading: (state) => state.uploading,
   },
   mutations: {
     SET_USER_ADDRESS(state, userAddress) {
@@ -37,6 +40,9 @@ export default createStore({
     },
     SET_CHUNK_SIZE(state, chunkSize) {
       state.chunkSize = chunkSize
+    },
+    SET_UPLOADING(state, uploading) {
+      state.uploading = uploading
     },
     
   },

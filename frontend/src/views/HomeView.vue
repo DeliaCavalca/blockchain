@@ -15,6 +15,10 @@
         <strong>Attenzione!</strong> La campagna di Crowdsensing è stata <strong>chiusa</strong>. Attualmente non è possibile caricare ulteriori dati.
     </div>
 
+    <div v-if="uploading" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+        <strong>Attendere il caricamento dati...</strong>
+    </div>
+
     <!-- User INFO -->
     <div class="border p-3" style="border-radius: 6px;">
         
@@ -138,6 +142,8 @@ export default {
         ...mapGetters(['isVerifier']),
 
         ...mapGetters(['isClosed']),
+
+        ...mapGetters(['uploading']),
 
         formattedEthBalance() {
             return Number(this.ethBalance)
