@@ -182,87 +182,6 @@ export default {
       return;
 
     },
-    /*
-    async getUnverifiedFile2() {
-      await this.getUnverifiedHash();
-
-      if (this.hashToVerifyList.length === 0) {
-        console.log("Nessun file da validare");
-        this.fileToVerifyList = [];
-        return;
-      }
-
-      // Imposta il provider e il contratto una sola volta
-      const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
-      const contract = new ethers.Contract(this.contractAddress, DataStorage.abi, provider);
-
-      const files = await Promise.all(
-        this.hashToVerifyList.map(async (ipfsHash) => {
-            try {
-
-              // Recupera la chiave AES con la quale è stato criptato il file
-              const encryptedKey = await contract.getEncryptedKey(ipfsHash, this.userAddress);
-              console.log("GET Encrypted Key:", encryptedKey);
-
-              // Recupera i dati da IPFS, usando il CID
-              const stream = client.cat(ipfsHash);
-              
-              let data = new Uint8Array();
-              for await (const chunk of stream) {
-                data = new Uint8Array([...data, ...chunk]); // Concatena i chunk ricevuti
-              }
-
-              // Converte i dati in stringa JSON
-              const fileData = JSON.parse(new TextDecoder().decode(data));
-              //console.log("File Data:", fileData);
-              // Estrai il file cifrato e la firma dal file JSON
-              const encryptedFile = fileData.file;
-              const signature = fileData.signature;
-
-              
-              // Calcola l'hash (digest) del file cifrato
-              const computedHash = await this.computeSHA256(encryptedFile);
-              console.log("COMPUTED FILE DIGEST: ", computedHash);
-              // Ottieni l'indirizzo (chiave pubblica) originale di chi ha firmato
-              const recoveredSigner = ethers.utils.verifyMessage(computedHash, signature);
-              console.log("RECOVERED SIGNER ADDRESS: ", recoveredSigner);
-              
-              // Recupera l'indirizzo (chiave pubblica) dell'utente che ha caricato tale hash
-              const userAddress = await contract.getOwnerAddress(ipfsHash); 
-              console.log("USER ADDRESS: ", userAddress)
-              
-               
-              const isValid = recoveredSigner === userAddress;
-              console.log("FIRMA VALIDA?", isValid);
-
-              let signatureError = ''
-              if (isValid) {
-                console.log("La firma è valida. Il file è autentico.");
-              } else {
-                console.log("Firma non valida. Il file potrebbe essere stato manomesso.");
-                signatureError = 'Attenzione! Il file potrebbe essere stato manomesso.';
-              }
-
-              // Decifra il file, usando la sua chiave AES
-              const decryptedData = this.decryptFile(encryptedFile, encryptedKey);
-              const blob = new Blob([decryptedData], { type: "application/octet-stream" });
-              
-              return { hash: ipfsHash, url: URL.createObjectURL(blob), signatureError: signatureError };
-
-            } catch (error) {
-              console.error(`Errore nel download del file IPFS con hash ${ipfsHash}:`, error);
-              return null;
-            }
-        })
-      );
-
-      this.fileToVerifyList = files.filter(file => file !== null);
-      await this.validateGeoDataForAllFiles();  // Esegui la validazione per ogni file caricato
-
-      return;
-
-    },
-    */
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -275,38 +194,7 @@ export default {
       return hash;
     },
     
-    /**
-     * Decripta il file con la chiave fornita
-     * @param {string} encryptedBase64 - File criptato in Base64
-     * @param {string} key - Chiave di decrittografia
-     * @returns {Uint8Array} - File decriptato come dati binari
-     */
-    decryptFile(encryptedBase64, key) {
-      try {
-
-        console.log("Chiave passata:", key);
-        // Decripta usando AES e la chiave fornita
-        const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
-
-        // Verifica se la decrittografia ha prodotto dei dati
-        if (!decryptedBytes || !decryptedBytes.words) {
-          throw new Error("Decryption failed. Check your key and data format.");
-        }
-
-        // Converte i dati decriptati in un array di byte (Uint8Array)
-        const decryptedData = this.wordsToByteArray(decryptedBytes.words);
-
-        console.log("Decrypted Data (binary):", decryptedData);
-
-        // Ritorna i dati binari decriptati come Uint8Array
-        return new Uint8Array(decryptedData);
-      } catch (error) {
-        console.error("Decryption error:", error);
-        throw error;
-      }
-    },
-    
-    
+    // Funzione per decriptare un blocco dati
     decryptBlock(encryptedBase64, key) {
       try {
 
@@ -315,21 +203,7 @@ export default {
 
         // Decripta usando AES e la chiave fornita
         const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
-        /*console.log(decryptedBytes)
-
-        // Verifica se la decrittografia ha prodotto dei dati
-        if (!decryptedBytes || !decryptedBytes.words) {
-          throw new Error("Decryption failed. Check your key and data format.");
-        }
-
-        const decryptedBase64 = CryptoJS.enc.Utf8.stringify(decryptedBytes);
         
-        const byteCharacters = atob(decryptedBase64);
-        const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
-        const decryptedBlock = new Uint8Array(byteNumbers);
-
-        return decryptedBlock;*/
-
         const decryptedBase64 = decryptedBytes.toString(CryptoJS.enc.Utf8);
 
         if (!decryptedBase64) {
@@ -353,24 +227,6 @@ export default {
         throw error;
       }
     },
-
-    /**
-     * Converte un array di parole (CryptoJS) in un array di byte
-     * @param {Array} words - Array di parole (oggetti WordArray)
-     * @returns {Array} - Array di byte
-     */
-    wordsToByteArray(words) {
-      const byteArray = [];
-      for (let i = 0; i < words.length; i++) {
-        const word = words[i];
-        byteArray.push((word >> 24) & 0xff);
-        byteArray.push((word >> 16) & 0xff);
-        byteArray.push((word >> 8) & 0xff);
-        byteArray.push(word & 0xff);
-      }
-      return byteArray;
-    },
-
 
     // Funzione per validare in automatico tutti i file caricati
     async validateGeoDataForAllFiles() {
