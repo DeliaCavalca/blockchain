@@ -44,7 +44,7 @@ contract Crowdsensing {
     uint256 public minimumParticipants = 10; // Numero minimo di partecipazioni per chiudere la campagna
     uint256 public verifiedCount = 0; // Numero di dati validatati (dati validi)
 
-    uint256 public chunkSize = 512; // Dimensione dei blocchi in cui suddividere i dati
+    uint256 public chunkSize = 256; // Dimensione dei blocchi in cui suddividere i dati
 
     // Stato della campagna
     string public campaignStatus = "Ongoing";
