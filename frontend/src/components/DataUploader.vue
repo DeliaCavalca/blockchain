@@ -76,7 +76,6 @@ export default {
     },
 
     // Genera la chiave di crittografia
-    
     async generateKey() {
       
       // Crea una chiave AES a 256 bit
@@ -119,27 +118,7 @@ export default {
       }
     },
 
-    // Funzione per cifrare il file con la chiave AES
-    /*
-    async encryptFile() {
-      try {
-        if (!this.file) throw new Error("No file selected");
-        if (!this.encryptionKey) throw new Error("No encryption key provided");
-
-        console.log("Encrypting text file...");
-        const fileContent = await this.file.text();
-        const encryptedData = CryptoJS.AES.encrypt(fileContent, this.encryptionKey).toString();
-        console.log("File encrypted successfully!");
-        console.log("encryptedData:", encryptedData);
-        //return new Blob([encryptedData], { type: "text/plain" });
-        return encryptedData;
-      } catch (error) {
-        this.message = "Error encrypting file.";
-        console.error("Error encrypting file:", error);
-        throw error;
-      }
-    },*/
-
+    // Funzione per criptare un blocco
     async encryptBlock(block) {
       try {
         if (!this.encryptionKey) throw new Error("No encryption key provided");
@@ -159,7 +138,6 @@ export default {
         throw error;
       }
     },
-
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -245,52 +223,7 @@ export default {
         console.error("Error uploading file to IPFS:", error);
       }
     },
-    /*
-    async uploadToIpfs2() {
-      try {
-        if (!this.file) {
-          throw new Error("No file selected");
-        }
-
-        // codifica il file con la chiave AES
-        const encryptedBlob = await this.encryptFile();
-        
-        // calcolo hash (SHA-256) del file: genera il digest
-        const fileHash = await this.computeSHA256(encryptedBlob);
-        console.log("FILE DIGEST: ", fileHash);
-
-        // recupera la chiave privata dell'utente
-        const user = accounts.find(acc => acc.address === this.userAddress);
-        const privateKey = user.privateKey;
-        // firma del digest con la chiave privata dell'utente
-        const wallet = new ethers.Wallet(privateKey);
-        const signature = await wallet.signMessage(fileHash);
-        //console.log("SIGNATURE: ", signature);
-
-
-        // Caricamento dati su IPFS: file cifrato + firma del digest
-        const dataToUpload = {
-          file: encryptedBlob,     // File cifrato
-          signature: signature     // Firma del digest
-        };
-        console.log("DATA TO UPLOAD")
-        console.log(dataToUpload)
-        const dataBlob = new Blob([JSON.stringify(dataToUpload)], { type: "application/json" });
-        
-        // Caricamento dati su IPFS
-        const added = await client.add(dataBlob);
-        // IPFS Hash (CID): posizione in cui sono stati salvati i dati
-        this.ipfsHash = added.path; // Salva l'hash IPFS del file caricato
-
-        console.log("File uploaded to IPFS with hash:", this.ipfsHash);
-        
-      } catch (error) {
-        // emit event
-        eventBus.emit('showAlertErrorLoad');
-        console.error("Error uploading file to IPFS:", error);
-      }
-    },*/
-
+    
     // Comunica allo Smart Contract la posizione dei dati su IPFS
     async sendCIDToContract() {
       if (!this.ipfsHash) {
