@@ -26,11 +26,14 @@
 <script>
 import { create as ipfsHttpClient } from 'ipfs-http-client';
 import { ethers } from 'ethers';
-import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; // Percorso corretto
+import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; 
 import eventBus from '@/eventBus';
-import CryptoJS from "crypto-js";
 import { mapGetters } from 'vuex'
 import accounts from "@/assets/hardhat-accounts.json";
+
+import CryptoJS from "crypto-js";
+import EC from 'elliptic';
+const ec = new EC.ec('secp256k1');
 
 const client = ipfsHttpClient({ url: 'http://localhost:5001' });
 
@@ -51,6 +54,8 @@ export default {
 
       publicKey: '',
       privateKey: '',
+
+      adminKeySent: false,
     };
   },
 
@@ -103,7 +108,7 @@ export default {
       try {
         if (!key) throw new Error("No encryption key provided");
 
-        console.log("Encrypting block...");
+        //console.log("Encrypting block..."); 
 
         // Converte il blocco binario in stringa Base64
         const blockWordArray = CryptoJS.lib.WordArray.create(block);
@@ -113,6 +118,7 @@ export default {
         const encryptedData = CryptoJS.AES.encrypt(blockBase64, this.encryptionKey).toString();
 
         return encryptedData;
+
       } catch (error) {
         console.error("Errore nella cifratura:", error);
         throw error;
@@ -154,7 +160,7 @@ export default {
 
         // Cifra ogni blocco
         for (let i = 0; i < fileUint8Array.length; i += BLOCK_SIZE) {
-            console.log("CODIFICA BLOCCO - ", i);
+            //console.log("CODIFICA BLOCCO - ", i);
             
             // Estrai il blocco
             let block = fileUint8Array.slice(i, i + BLOCK_SIZE);
@@ -167,7 +173,7 @@ export default {
 
             // Calcola l'hash del blocco cifrato
             let blockHash = await this.computeSHA256(encryptedData);
-            console.log("BLOCK DIGEST: ", blockHash)
+            //console.log("BLOCK DIGEST: ", blockHash)
 
             // Firma l'hash con la chiave privata dell'utente
             let signature = await wallet.signMessage(blockHash);
@@ -287,7 +293,8 @@ export default {
       // Estrai la chiave privata e l'indirizzo (chiave pubblica)
       const privateKey = wallet.privateKey;
       //console.log(privateKey)
-      const publicKey = wallet.address;
+      //const publicKey = wallet.address;
+      const publicKey = ethers.utils.computePublicKey(privateKey, false);
       //console.log(publicKey)
       
       return {
@@ -308,7 +315,7 @@ export default {
         signer = provider.getSigner(this.userAddress);
         contractWithSigner = contract.connect(signer);
 
-        console.log("Sending Public Key to Contract...")
+        console.log("USER: Sending Public Key to Contract...")
         const tx = await contractWithSigner.uploadPublicKey(this.publicKey);
         await tx.wait();
         console.log("SENT SUCCESSFULLY!");
@@ -316,18 +323,22 @@ export default {
         // Operazioni svolte dall'ADMIN
         // Admin in ascolto dell'evento "UserEnrolled" dallo SC
         contract.on("UserEnrolled", async (user, publicKey) => {
+          console.log("EVENT 1: UserEnrolled")
           signer = provider.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Admin Address
           contractWithSigner = contract.connect(signer);
 
           console.log(`Nuovo utente logged: ${user}, Chiave pubblica: ${publicKey}`);
           // l'Admin ottiene la chiave pubblica dell'utente
-          // cifra la encryptionKey con la chiave pubblica dell'utente
-          const encryptionKey = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo="
-          const encryptedKey = await this.encryptKey(encryptionKey, publicKey);
-          //console.log(encryptedKey)
+          // cifra la encryptionKey K con la chiave pubblica dell'utente
+          console.log("ADMIN: ENCRYPT K")
+          const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo="
+          //const encryptedKey = await this.encryptKey(K, publicKey);
+          const encryptedKey = await this.encryptKeyECIES(K, publicKey);
+          console.log('ADMIN: Encrypted K:', encryptedKey);
 
           // invia encryptedKey allo SC
-          console.log("Sending Encripted Key to Contract...")
+          console.log("SENDING Encripted Key to Contract...")
+          this.adminKeySent = true
           const tx = await contractWithSigner.sendEncryptedKey(this.userAddress, encryptedKey);
           await tx.wait();
           console.log("SENT SUCCESSFULLY!");
@@ -337,20 +348,28 @@ export default {
         // Operazioni svolte dall'Utente
         // User in ascolto dell'evento "KeySent" dallo SC
         contract.on("KeySent", async (user, encryptedKey) => {
-          signer = provider.getSigner(this.userAddress);
-          contractWithSigner = contract.connect(signer);
+          if(this.adminKeySent){
+            console.log("EVENT 2: KeySent")
+            signer = provider.getSigner(this.userAddress);
+            contractWithSigner = contract.connect(signer);
 
-          console.log(`EncryptedKey: ${encryptedKey}`);
-          
-          // l'utente decifra la encryptedKey con la sua chiave privata
-          const decryptedKey = await this.decryptKey(encryptedKey, this.publicKey);
-          console.log(`decryptedKey: ${decryptedKey}`);
-          
-          // l'utente cifra i dati e li carica su IPFS
-          await this.uploadToIpfs(decryptedKey);
+            console.log(`USER: DECRYPT Encrypted_K: ${encryptedKey}`);
+            
+            // l'utente decifra la encryptedKey con la sua chiave privata
+            //const decryptedKey = await this.decryptKey(encryptedKey, this.publicKey); 
+            const decryptedKey = await this.decryptKeyECIES(encryptedKey, this.privateKey);
+            console.log(`USER: K: ${decryptedKey}`);
+            
+            // l'utente cifra i dati e li carica su IPFS
+            await this.uploadToIpfs(decryptedKey);
+            console.log("USER: UPLOAD TO IPFS DONE");
 
-          // comunicare allo SC la posizione dei dati su IPFS (CID)
-          await this.sendCIDToContract(this.ipfsHash);
+            // comunicare allo SC la posizione dei dati su IPFS (CID)
+            await this.sendCIDToContract(this.ipfsHash);
+            console.log("USER: CID SENT TO CONTRACT");
+          }
+
+          this.adminKeySent = false
 
         });
 
@@ -372,6 +391,18 @@ export default {
       return encrypted
     },
 
+    async encryptKeyECIES(K, publicKeyHex) { 
+      const publicKey = ec.keyFromPublic(publicKeyHex.slice(2), 'hex');
+      console.log("Public Key: ", publicKey);
+
+      const sharedSecret = publicKey.getPublic().encode('hex');
+
+      // Usa AES per cifrare la chiave con il segreto condiviso
+      const encrypted = CryptoJS.AES.encrypt(K, sharedSecret).toString();
+      //console.log('Encrypted Key:', encrypted);
+      return encrypted; 
+    },
+
     // decodifica la chiave per la codifica del file con la chiave privata dell'utente
     async decryptKey(K_ciphered, privateKey) {
       const bytes = CryptoJS.AES.decrypt(K_ciphered, privateKey); 
@@ -380,6 +411,16 @@ export default {
       console.log("Decrypted Key:", decrypted);
       
       return decrypted
+    },
+
+    async decryptKeyECIES(K_ciphered, privateKeyHex) { 
+      const privateKey = ec.keyFromPrivate(privateKeyHex.slice(2), 'hex');
+      const sharedSecret = privateKey.getPublic().encode('hex');
+
+      const decryptedBytes = CryptoJS.AES.decrypt(K_ciphered, sharedSecret);
+      const decrypted = decryptedBytes.toString(CryptoJS.enc.Utf8);
+      //console.log('Decrypted Key:', decrypted);
+      return decrypted;
     },
 
 

@@ -16,6 +16,8 @@
     "crypto-browserify": "^3.12.1",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.4.7",
+    "elliptic": "^6.6.1",
+    "ethereum-cryptography": "^3.1.0",
     "ethers": "^5.7.0",
     "ipfs-http-client": "^60.0.1",
     "mitt": "^3.0.1",
