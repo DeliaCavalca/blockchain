@@ -47,7 +47,7 @@ export default {
       invalidFile: false,
       selectedFileName: null,
       ipfsHash: "",
-      encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
+      //encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
       contract: null,
 
       ethToPay: "0.1",
@@ -115,7 +115,7 @@ export default {
         const blockBase64 = CryptoJS.enc.Base64.stringify(blockWordArray);
 
         // Cifra il blocco con AES
-        const encryptedData = CryptoJS.AES.encrypt(blockBase64, this.encryptionKey).toString();
+        const encryptedData = CryptoJS.AES.encrypt(blockBase64, key).toString();
 
         return encryptedData;
 
@@ -331,8 +331,7 @@ export default {
           // l'Admin ottiene la chiave pubblica dell'utente
           // cifra la encryptionKey K con la chiave pubblica dell'utente
           console.log("ADMIN: ENCRYPT K")
-          const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo="
-          //const encryptedKey = await this.encryptKey(K, publicKey);
+          const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
           const encryptedKey = await this.encryptKeyECIES(K, publicKey);
           console.log('ADMIN: Encrypted K:', encryptedKey);
 
@@ -356,7 +355,6 @@ export default {
             console.log(`USER: DECRYPT Encrypted_K: ${encryptedKey}`);
             
             // l'utente decifra la encryptedKey con la sua chiave privata
-            //const decryptedKey = await this.decryptKey(encryptedKey, this.publicKey); 
             const decryptedKey = await this.decryptKeyECIES(encryptedKey, this.privateKey);
             console.log(`USER: K: ${decryptedKey}`);
             
@@ -380,17 +378,6 @@ export default {
     },
 
     // codifica la chiave per la codifica del file con la chiave pubblica dell'utente
-    async encryptKey(K, publicKey) {
-
-      console.log('K:', K);
-      console.log('PK_A:', publicKey);
-
-      const encrypted = CryptoJS.AES.encrypt(K, publicKey).toString(); // Cifra la chiave con AES
-      console.log("Encrypted Key:", encrypted);
-      
-      return encrypted
-    },
-
     async encryptKeyECIES(K, publicKeyHex) { 
       const publicKey = ec.keyFromPublic(publicKeyHex.slice(2), 'hex');
       console.log("Public Key: ", publicKey);
@@ -404,15 +391,6 @@ export default {
     },
 
     // decodifica la chiave per la codifica del file con la chiave privata dell'utente
-    async decryptKey(K_ciphered, privateKey) {
-      const bytes = CryptoJS.AES.decrypt(K_ciphered, privateKey); 
-      const decrypted = bytes.toString(CryptoJS.enc.Utf8); // Decifra il risultato
-
-      console.log("Decrypted Key:", decrypted);
-      
-      return decrypted
-    },
-
     async decryptKeyECIES(K_ciphered, privateKeyHex) { 
       const privateKey = ec.keyFromPrivate(privateKeyHex.slice(2), 'hex');
       const sharedSecret = privateKey.getPublic().encode('hex');

@@ -206,21 +206,7 @@ export default {
 
         // Decripta usando AES e la chiave fornita
         const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
-        /*console.log(decryptedBytes)
-
-        // Verifica se la decrittografia ha prodotto dei dati
-        if (!decryptedBytes || !decryptedBytes.words) {
-          throw new Error("Decryption failed. Check your key and data format.");
-        }
-
-        const decryptedBase64 = CryptoJS.enc.Utf8.stringify(decryptedBytes);
         
-        const byteCharacters = atob(decryptedBase64);
-        const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
-        const decryptedBlock = new Uint8Array(byteNumbers);
-
-        return decryptedBlock;*/
-
         const decryptedBase64 = decryptedBytes.toString(CryptoJS.enc.Utf8);
 
         if (!decryptedBase64) {
