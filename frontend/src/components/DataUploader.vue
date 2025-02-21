@@ -374,6 +374,7 @@ export default {
 
         });
 
+        
       } catch (error) {
         console.error("Error connecting to Ethereum provider:", error);
         return;

@@ -15,6 +15,7 @@ export default createStore({
     chunkSize: null, // Chunk Size for Data Storage
 
     uploading: false, 
+    searching: false, 
     
   },
   getters: {
@@ -24,6 +25,7 @@ export default createStore({
     ethBalance: (state) => state.ethBalance,
     isClosed: (state) => state.status == "Closed",
     uploading: (state) => state.uploading,
+    searching: (state) => state.searching,
   },
   mutations: {
     SET_USER_ADDRESS(state, userAddress) {
@@ -43,6 +45,9 @@ export default createStore({
     },
     SET_UPLOADING(state, uploading) {
       state.uploading = uploading
+    },
+    SET_SEARCHING(state, searching) {
+      state.searching = searching
     },
     
   },

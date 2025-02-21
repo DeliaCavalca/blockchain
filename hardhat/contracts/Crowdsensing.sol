@@ -19,13 +19,21 @@ contract Crowdsensing {
 
 
 
-    // Chiave pubblica dell'utente che vuole caricare un file su IPFS
+    // Evento ascoltato dall'Admin: User ha intenzione di caricare dati
     event UserEnrolled(address indexed user, string publicKey);
+    // Evento ascoltato dallo User: l'Admin gli ha inviato la chiave per cifrare i dati
+    event KeySent(address indexed user, string encryptedKey);
+    // Evento ascoltato dal Verifier: ci sono dati da validare
+    event VerificationRequested(string ipfsHash);
+    // Evento ascoltato dall'Admin: Verifier ha intenzione di validare dati
+    event VerifierEnrolled(address indexed user, string publicKey);
+    
+    // Chiave pubblica dell'utente che vuole caricare un file su IPFS
     mapping(address => string) public userPublicKeys;
     // Chiave per la codifica dei dati
-    event KeySent(address indexed user, string encryptedKey);
     mapping(address => string) public encryptedKeys;
-
+    // Chiave pubblica del Verifier che vuole validare i dati
+    mapping(address => string) public verifierPublicKeys;
 
 
     // Mappature per memorizzare i dati degli utenti e dei verificatori
@@ -104,7 +112,9 @@ contract Crowdsensing {
         filePayments[ipfsHash][msg.sender] += msg.value; // Associa l'importo specifico al file
 
         uploadedHashes.push(ipfsHash); // Aggiunge l'hash alla lista
+
         emit DataUploaded(msg.sender, ipfsHash);
+
     }
 
     // Funzione per l'invio della chiave pubblica da parte dell'utente
@@ -114,6 +124,15 @@ contract Crowdsensing {
         userPublicKeys[msg.sender] = publicKey;
 
         emit UserEnrolled(msg.sender, publicKey);
+    }
+
+    // Funzione per l'invio della chiave pubblica da parte del Verifier
+    function uploadVerifierPublicKey(string memory publicKey) public {
+        
+        // Salva la chiave pubblica del Verifier
+        verifierPublicKeys[msg.sender] = publicKey;
+
+        emit VerifierEnrolled(msg.sender, publicKey);
     }
 
     function getUserPublicKey(address user) public view returns (string memory) {
@@ -180,6 +199,15 @@ contract Crowdsensing {
         }
 
         return unverifiedHashes;
+    }
+
+    // Emette un Evento VerificationRequested per ogni dato da validare
+    function requestVerificationForUnverifiedData() public {
+        for (uint256 i = 0; i < uploadedHashes.length; i++) {
+            if (!dataVerified[uploadedHashes[i]] && !dataVerifiedNotValid[uploadedHashes[i]]) {
+                emit VerificationRequested(uploadedHashes[i]);
+            }
+        }
     }
 
     // Funzione per ottenere gli Hash dei dati validati

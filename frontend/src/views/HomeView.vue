@@ -19,6 +19,10 @@
         <strong>Attendere il caricamento dati...</strong>
     </div>
 
+    <div v-if="searching" class="alert alert-warning alert-dismissible fade show" role="alert" style="text-align: left; font-size: 14px;">
+        <strong>Attendere la ricerca dei dati da validare...</strong>
+    </div>
+
     <!-- User INFO -->
     <div class="border p-3" style="border-radius: 6px;">
         
@@ -144,6 +148,8 @@ export default {
         ...mapGetters(['isClosed']),
 
         ...mapGetters(['uploading']),
+
+        ...mapGetters(['searching']),
 
         formattedEthBalance() {
             return Number(this.ethBalance)
