@@ -108,7 +108,8 @@ export default {
       try {
         if (!key) throw new Error("No encryption key provided");
 
-        //console.log("Encrypting block..."); 
+        console.log("Encrypting block..."); 
+        console.log("Encrypted Key:", key);
 
         // Converte il blocco binario in stringa Base64
         const blockWordArray = CryptoJS.lib.WordArray.create(block);

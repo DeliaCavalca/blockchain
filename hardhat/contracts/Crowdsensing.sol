@@ -63,6 +63,8 @@ contract Crowdsensing {
     event CampaignClosed(string status);
     event CampaignOpen(string status);
 
+    event DebugLog(string message, uint256 value);
+
 
     // Metodo eseguito quando viene fatto il deploy del contratto
     // Assegna i ruoli agli account generati da Hardhat
@@ -203,10 +205,19 @@ contract Crowdsensing {
 
     // Emette un Evento VerificationRequested per ogni dato da validare
     function requestVerificationForUnverifiedData() public {
+        emit DebugLog("VERIFICATION REQUEST", 0);
+
+        uint256 count = 0;
+
         for (uint256 i = 0; i < uploadedHashes.length; i++) {
             if (!dataVerified[uploadedHashes[i]] && !dataVerifiedNotValid[uploadedHashes[i]]) {
+                count++;
                 emit VerificationRequested(uploadedHashes[i]);
             }
+        }
+
+        if(count == 0) {
+            emit VerificationRequested("");
         }
     }
 

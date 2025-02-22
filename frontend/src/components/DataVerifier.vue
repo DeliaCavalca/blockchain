@@ -58,6 +58,7 @@ export default {
     this.contractAddress = this.$store.state.contractAddress
     this.userAddress = this.$store.state.userAddress
 
+    console.log("CREATED - LIST: ", this.hashToVerifyList.length)
 
     this.getVerificationRequests();
 
@@ -75,6 +76,7 @@ export default {
 
     // Verifier in ascolto dell'evento VerificationRequested
     async getVerificationRequests() {
+      
       this.$store.commit('SET_SEARCHING', true);
 
       // il Verificatore genera una nuova coppia di chiavi privata-pubblica
@@ -95,11 +97,33 @@ export default {
 
           signer = provider.getSigner(this.userAddress);
           contractWithSigner = contract.connect(signer);
+
           const tx = await contractWithSigner.requestVerificationForUnverifiedData();
           await tx.wait();
+
           
+          contract.on("DebugLog", (message, value) => {
+            console.log(message, value.toString());
+          });
+          
+          // Operazioni svolte dal Verifier
+          // Verifier in ascolto dell'evento "VerificationRequested" dallo SC
+          // ottenere gli hash dei file da validare
           contract.on("VerificationRequested", async (ipfsHash) => {
             console.log("EVENT VERIFIER 1: VerificationRequested");
+
+            if(ipfsHash == "") {
+              console.log("NESSUN FILE DA VALIDARE!");
+              this.$store.commit('SET_SEARCHING', false);
+              return;
+            } else {
+              const index = this.hashToVerifyList.indexOf(ipfsHash);
+              if (index !== -1) {
+                console.log("GIA AGGIUNTO ALLA LISTA!");
+                return;
+              }
+            }
+
             console.log("IPFS HASH: ", ipfsHash)
             this.hashToVerifyList.push(ipfsHash)
 
@@ -159,6 +183,7 @@ export default {
 
               // Recupera i dati da IPFS, decriptandoli con la chiave ottenuta
               this.encryptionKey = decryptedKey
+
               await this.getUnverifiedFile()
 
             }
@@ -262,6 +287,8 @@ export default {
       const files = await Promise.all(
         this.hashToVerifyList.map(async (indexIpfsHash) => {
             try {
+              console.log("LOG... ")
+              
               // Recupera la struttura dati dei blocchi da IPFS
               const stream = client.cat(indexIpfsHash);
               let indexData = new Uint8Array();
@@ -282,6 +309,7 @@ export default {
               let signatureError = ''
               let decryptedFileParts = [];
               for (const blockHash of blockHashes) {
+                console.log("LOG 2... ", blockHash)
                 const blockStream = client.cat(blockHash);
                 let blockData = new Uint8Array();
                 for await (const chunk of blockStream) {
@@ -362,11 +390,12 @@ export default {
     },
     
     
-    decryptBlock(encryptedBase64, key) {
+    async decryptBlock(encryptedBase64, key) {
       try {
 
         //console.log("DECRYPT BLOCK.....")
         //console.log(encryptedBase64)
+        console.log("Encrypted Key:", key);
 
         // Decripta usando AES e la chiave fornita
         const decryptedBytes = CryptoJS.AES.decrypt(encryptedBase64, key);
