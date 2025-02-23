@@ -50,7 +50,7 @@ export default {
       publicKey: '',
       privateKey: '',
       verifierKeySent: false,
-      adminKeySent: false,
+      waitingKey: false,
     };
   },
 
@@ -105,12 +105,15 @@ export default {
           contract.on("DebugLog", (message, value) => {
             console.log(message, value.toString());
           });
+
+          contract.removeAllListeners("VerificationRequested");
+          contract.removeAllListeners("KeySent");
           
           // Operazioni svolte dal Verifier
           // Verifier in ascolto dell'evento "VerificationRequested" dallo SC
           // ottenere gli hash dei file da validare
           contract.on("VerificationRequested", async (ipfsHash) => {
-            console.log("EVENT VERIFIER 1: VerificationRequested");
+            console.log("VERIFIER EVENT 1: VerificationRequested");
 
             if(ipfsHash == "") {
               console.log("NESSUN FILE DA VALIDARE!");
@@ -136,41 +139,19 @@ export default {
             const tx = await contractWithSigner.uploadVerifierPublicKey(this.publicKey);
             await tx.wait();
             console.log("SENT SUCCESSFULLY!");
+
+            this.waitingKey = true
               
           });
 
-          // Operazioni svolte dall'ADMIN
-          // Admin in ascolto dell'evento "VerifierEnrolled" dallo SC
-          contract.on("VerifierEnrolled", async (user, publicKey) => {
-            if(this.verifierKeySent) {
-              console.log("EVENT VERIFIER 2: VerifierEnrolled")
-              signer = provider.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Admin Address
-              contractWithSigner = contract.connect(signer);
-
-              console.log(`Verifier address: ${user}, Chiave pubblica: ${publicKey}`);
-              // l'Admin ottiene la chiave pubblica del Verifier
-              // cifra la encryptionKey K con la chiave pubblica del Verifier
-              console.log("ADMIN: ENCRYPT K")
-              const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
-              const encryptedKey = await this.encryptKeyECIES(K, publicKey);
-              console.log('ADMIN: Encrypted K:', encryptedKey);
-
-              // invia encryptedKey allo SC
-              console.log("SENDING Encripted Key to Contract...")
-              this.adminKeySent = true
-              const tx = await contractWithSigner.sendEncryptedKey(this.userAddress, encryptedKey);
-              await tx.wait();
-              console.log("SENT SUCCESSFULLY!");
-              
-            }
-            this.verifierKeySent = false
-          });
-
+          
           // Operazioni svolte dal Verifier
           // Verifier in ascolto dell'evento "KeySent" dallo SC
           contract.on("KeySent", async (user, encryptedKey) => {
-            if(this.adminKeySent){
-              console.log("EVENT 3: KeySent")
+            
+            if(this.waitingKey){
+
+              console.log("VERIFIER EVENT 2: KeySent")
               signer = provider.getSigner(this.userAddress);
               contractWithSigner = contract.connect(signer);
 
@@ -180,7 +161,6 @@ export default {
               const decryptedKey = await this.decryptKeyECIES(encryptedKey, this.privateKey);
               console.log(`VERIFIER: K: ${decryptedKey}`);
               
-
               // Recupera i dati da IPFS, decriptandoli con la chiave ottenuta
               this.encryptionKey = decryptedKey
 
@@ -188,10 +168,9 @@ export default {
 
             }
 
-            this.adminKeySent = false
+            this.waitingKey = false
 
           });
-
 
         }
         
@@ -220,18 +199,6 @@ export default {
       };
     },
 
-    // codifica la chiave per la codifica del file con la chiave pubblica dell'utente
-    async encryptKeyECIES(K, publicKeyHex) { 
-      const publicKey = ec.keyFromPublic(publicKeyHex.slice(2), 'hex');
-      console.log("Public Key: ", publicKey);
-
-      const sharedSecret = publicKey.getPublic().encode('hex');
-
-      // Usa AES per cifrare la chiave con il segreto condiviso
-      const encrypted = CryptoJS.AES.encrypt(K, sharedSecret).toString();
-      //console.log('Encrypted Key:', encrypted);
-      return encrypted; 
-    },
 
     // decodifica la chiave per la codifica del file con la chiave privata dell'utente
     async decryptKeyECIES(K_ciphered, privateKeyHex) { 

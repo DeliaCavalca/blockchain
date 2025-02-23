@@ -55,7 +55,7 @@ export default {
       publicKey: '',
       privateKey: '',
 
-      adminKeySent: false,
+      waitingKey: false,
     };
   },
 
@@ -322,35 +322,16 @@ export default {
         await tx.wait();
         console.log("SENT SUCCESSFULLY!");
 
-        // Operazioni svolte dall'ADMIN
-        // Admin in ascolto dell'evento "UserEnrolled" dallo SC
-        contract.on("UserEnrolled", async (user, publicKey) => {
-          console.log("EVENT 1: UserEnrolled")
-          signer = provider.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Admin Address
-          contractWithSigner = contract.connect(signer);
+        this.waitingKey = true
 
-          console.log(`Nuovo utente logged: ${user}, Chiave pubblica: ${publicKey}`);
-          // l'Admin ottiene la chiave pubblica dell'utente
-          // cifra la encryptionKey K con la chiave pubblica dell'utente
-          console.log("ADMIN: ENCRYPT K")
-          const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
-          const encryptedKey = await this.encryptKeyECIES(K, publicKey);
-          console.log('ADMIN: Encrypted K:', encryptedKey);
-
-          // invia encryptedKey allo SC
-          console.log("SENDING Encripted Key to Contract...")
-          this.adminKeySent = true
-          const tx = await contractWithSigner.sendEncryptedKey(this.userAddress, encryptedKey);
-          await tx.wait();
-          console.log("SENT SUCCESSFULLY!");
-
-        });
+        contract.removeAllListeners("KeySent");
 
         // Operazioni svolte dall'Utente
         // User in ascolto dell'evento "KeySent" dallo SC
         contract.on("KeySent", async (user, encryptedKey) => {
-          if(this.adminKeySent){
-            console.log("EVENT 2: KeySent")
+          
+          if(this.waitingKey){
+            console.log("------- USER EVENT 2: KeySent")
             signer = provider.getSigner(this.userAddress);
             contractWithSigner = contract.connect(signer);
 
@@ -371,7 +352,7 @@ export default {
             this.$store.commit('SET_UPLOADING', false);
           }
 
-          this.adminKeySent = false
+          this.waitingKey = false
 
         });
 
@@ -382,18 +363,7 @@ export default {
       }
     },
 
-    // codifica la chiave per la codifica del file con la chiave pubblica dell'utente
-    async encryptKeyECIES(K, publicKeyHex) { 
-      const publicKey = ec.keyFromPublic(publicKeyHex.slice(2), 'hex');
-      console.log("Public Key: ", publicKey);
-
-      const sharedSecret = publicKey.getPublic().encode('hex');
-
-      // Usa AES per cifrare la chiave con il segreto condiviso
-      const encrypted = CryptoJS.AES.encrypt(K, sharedSecret).toString();
-      //console.log('Encrypted Key:', encrypted);
-      return encrypted; 
-    },
+    
 
     // decodifica la chiave per la codifica del file con la chiave privata dell'utente
     async decryptKeyECIES(K_ciphered, privateKeyHex) { 
