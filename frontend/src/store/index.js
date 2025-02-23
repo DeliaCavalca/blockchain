@@ -16,6 +16,9 @@ export default createStore({
 
     uploading: false, 
     searching: false, 
+
+    k_enc: null,
+    k_dec: null,
     
   },
   getters: {
@@ -48,6 +51,12 @@ export default createStore({
     },
     SET_SEARCHING(state, searching) {
       state.searching = searching
+    },
+    SET_K_ENC(state, k_enc) {
+      state.k_enc = k_enc
+    },
+    SET_K_DEC(state, k_dec) {
+      state.k_dec = k_dec
     },
     
   },

@@ -47,7 +47,6 @@ export default {
       invalidFile: false,
       selectedFileName: null,
       ipfsHash: "",
-      //encryptionKey: "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=",
       contract: null,
 
       ethToPay: "0.1",
@@ -126,6 +125,53 @@ export default {
       }
     },
 
+    async encryptBlock_2(block, K_enc) {
+      console.log("Encrypting block..."); 
+      const publicKey = await this.importPublicKey(K_enc);
+
+      if (block.length > 214) {
+        throw new Error("Block size is too large for RSA-OAEP");
+      }
+
+      const blockArrayBuffer = new ArrayBuffer(block.length);
+      const blockUint8Array = new Uint8Array(blockArrayBuffer);
+      blockUint8Array.set(block);
+
+      try {
+        const encryptedBlock = await window.crypto.subtle.encrypt(
+          {
+            name: "RSA-OAEP", // Algoritmo RSA-OAEP
+          },
+          publicKey,
+          blockArrayBuffer // Blocco da cifrare
+        );
+
+        return new Uint8Array(encryptedBlock);
+      } catch (error) {
+        console.error("Errore nella cifratura RSA:", error);
+        throw error;
+      }
+
+    },
+    async importPublicKey(K_enc) {
+            // Decodifica la chiave pubblica K_enc da base64
+            const binaryKey = Uint8Array.from(atob(K_enc), c => c.charCodeAt(0));
+
+            // Importa la chiave pubblica in formato leggibile da Crypto API
+            const publicKey = await window.crypto.subtle.importKey(
+                "spki", // Formato della chiave pubblica (SPKI)
+                binaryKey, // Chiave decodificata
+                {
+                    name: "RSA-OAEP", // Algoritmo RSA-OAEP
+                    hash: "SHA-256",  // Hashing per RSA-OAEP
+                },
+                false, // La chiave pubblica non è per la firma
+                ["encrypt"] // Operazioni consentite (solo cifratura)
+            );
+
+            return publicKey;
+    },
+
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -151,6 +197,7 @@ export default {
 
         // Definisci la dimensione del blocco
         const BLOCK_SIZE = Number(this.$store.state.chunkSize);
+        //const BLOCK_SIZE = 214;
         let blocks = [];
 
         // recupera la chiave privata dell'utente
@@ -276,7 +323,7 @@ export default {
 
       // l'utente genera una nuova coppia di chiavi privata-pubblica
       const keys = await this.generateKeyPair()
-      console.log("CHIAVI GENERATE")
+      console.log("USER: CHIAVI GENERATE")
       console.log(keys)
       this.publicKey = keys.publicKey
       this.privateKey = keys.privateKey
@@ -303,7 +350,7 @@ export default {
         privateKey: privateKey,
         publicKey: publicKey
       };
-    },
+    }, 
 
     // Comunica allo Smart Contract la chiave pubblica
     async sendPublicKeyToContract() {

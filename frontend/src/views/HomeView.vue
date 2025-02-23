@@ -138,6 +138,9 @@ export default {
         userAddress: null, // Indirizzo dell'utente Ethereum
         userRole: null,
 
+        k_enc: null,
+        k_dec: null,
+
         seeUserAddress: false,
         showAlertSuccessLoad: false,
         showAlertErrorLoad: false,
@@ -172,8 +175,12 @@ export default {
 
         this.getCampaignStatus();
 
+        
+        if(this.$store.state.k_enc == null) {
+            this.adminKeys();
+        }
         this.adminOperations();
-
+        
         // manage the event showAlertSuccessLoad
         eventBus.on('showAlertSuccessLoad', () => {
             this.showAlertSuccessLoad = true
@@ -215,6 +222,25 @@ export default {
 
         },
 
+
+        // Genera le chiavi dell'Admin
+        async adminKeys() {
+
+            // l'Admin genera una nuova coppia di chiavi privata-pubblica
+            const keys = await this.generateKeyPair()
+            console.log("ADMIN: CHIAVI GENERATE")
+            console.log(keys)
+            this.k_enc = keys.publicKey
+            this.k_dec = keys.privateKey
+            this.$store.commit('SET_K_ENC', this.k_enc);
+            this.$store.commit('SET_K_DEC', this.k_dec);
+
+            const encryptedMessage = await this.encryptMessage("Ciao ciao", this.k_enc);
+            const decryptedMessage = await this.decryptMessage(encryptedMessage, this.k_dec);
+            console.log("TEST Decrypted:", decryptedMessage);
+
+        },
+
         // Operazioni svolte dall'ADMIN
         async adminOperations() {
             console.log("ADMIN OPERATIONS") 
@@ -238,9 +264,10 @@ export default {
                     console.log(`Nuovo utente logged: ${user}, Chiave pubblica: ${publicKey}`);
                     // l'Admin ottiene la chiave pubblica dell'utente
                     // cifra la encryptionKey K con la chiave pubblica dell'utente
-                    console.log("ADMIN: ENCRYPT K")
+                    console.log("ADMIN: ENCRYPT K_ENC")
                     const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
                     const encryptedKey = await this.encryptKeyECIES(K, publicKey);
+                    //const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_enc, publicKey);
                     console.log('ADMIN: Encrypted K:', encryptedKey);
 
                     // invia encryptedKey allo SC
@@ -261,9 +288,10 @@ export default {
                     console.log(`Verifier address: ${user}, Chiave pubblica: ${publicKey}`);
                     // l'Admin ottiene la chiave pubblica del Verifier
                     // cifra la encryptionKey K con la chiave pubblica del Verifier
-                    console.log("ADMIN: ENCRYPT K")
+                    console.log("ADMIN: ENCRYPT K_DEC")
                     const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
                     const encryptedKey = await this.encryptKeyECIES(K, publicKey);
+                    //const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_dec, publicKey);
                     console.log('ADMIN: Encrypted K:', encryptedKey);
 
                     // invia encryptedKey allo SC
@@ -293,6 +321,112 @@ export default {
             //console.log('Encrypted Key:', encrypted);
             return encrypted; 
         },
+
+        
+
+        
+        // Genera la coppia di chiavi del Admin
+        async generateKeyPair() {
+            const keyPair = await window.crypto.subtle.generateKey(
+                {
+                    name: "RSA-OAEP",
+                    modulusLength: 2048,
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: "SHA-256",
+                },
+                true, // True per permettere l'export delle chiavi
+                ["encrypt", "decrypt"] // Operazioni consentite
+            );
+
+            return {
+                publicKey: await this.exportPublicKey(keyPair.publicKey),
+                privateKey: await this.exportPrivateKey(keyPair.privateKey),
+            };
+        },
+        async exportPublicKey(key) {
+            const exported = await window.crypto.subtle.exportKey("spki", key);
+            return btoa(String.fromCharCode(...new Uint8Array(exported)));
+        },
+        async exportPrivateKey(key) {
+            const exported = await window.crypto.subtle.exportKey("pkcs8", key);
+            return btoa(String.fromCharCode(...new Uint8Array(exported)));
+        },
+        async importPublicKey(K_enc) {
+            // Decodifica la chiave pubblica K_enc da base64
+            const binaryKey = Uint8Array.from(atob(K_enc), c => c.charCodeAt(0));
+
+            // Importa la chiave pubblica in formato leggibile da Crypto API
+            const publicKey = await window.crypto.subtle.importKey(
+                "spki", // Formato della chiave pubblica (SPKI)
+                binaryKey, // Chiave decodificata
+                {
+                    name: "RSA-OAEP", // Algoritmo RSA-OAEP
+                    hash: "SHA-256",  // Hashing per RSA-OAEP
+                },
+                false, // La chiave pubblica non è per la firma
+                ["encrypt"] // Operazioni consentite (solo cifratura)
+            );
+
+            return publicKey;
+        },
+        async importPrivateKey(K_dec) {
+            // Decodifica la chiave privata K_dec da base64
+            const binaryKey = Uint8Array.from(atob(K_dec), c => c.charCodeAt(0));
+
+            // Importa la chiave privata in formato leggibile da Crypto API
+            const privateKey = await window.crypto.subtle.importKey(
+                "pkcs8", // Formato della chiave privata (PKCS8)
+                binaryKey, // Chiave decodificata
+                {
+                    name: "RSA-OAEP", // Algoritmo RSA-OAEP
+                    hash: "SHA-256",  // Hashing per RSA-OAEP
+                },
+                false, // La chiave privata non è per la firma
+                ["decrypt"] // Operazioni consentite (solo decriptazione)
+            );
+
+            return privateKey;
+        },
+
+        // Test codifica messaggio con la chiave k_enc
+        async encryptMessage(message, K_enc) {
+            const publicKey = await this.importPublicKey(K_enc);
+
+            const encoder = new TextEncoder();
+            const encodedMessage = encoder.encode(message);
+
+            const encrypted = await window.crypto.subtle.encrypt(
+                {
+                    name: "RSA-OAEP",
+                },
+                publicKey,
+                encodedMessage
+            );
+
+            return btoa(String.fromCharCode(...new Uint8Array(encrypted))); // Convertito in Base64
+        },
+        // Test decodifica messaggio con la chiave k_dec
+        async decryptMessage(encryptedMessage, K_dec) {
+            const privateKey = await this.importPrivateKey(K_dec);
+
+            const binaryStr = atob(encryptedMessage);
+            const binaryArray = new Uint8Array([...binaryStr].map(char => char.charCodeAt(0)));
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                {
+                    name: "RSA-OAEP",
+                },
+                privateKey,
+                binaryArray
+            );
+
+            return new TextDecoder().decode(decrypted);
+        },
+
+
+        
+
+
 
     },
   

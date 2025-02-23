@@ -81,7 +81,7 @@ export default {
 
       // il Verificatore genera una nuova coppia di chiavi privata-pubblica
       const keys = await this.generateKeyPair()
-      console.log("CHIAVI GENERATE")
+      console.log("VERIFIER: CHIAVI GENERATE")
       console.log(keys)
       this.publicKey = keys.publicKey
       this.privateKey = keys.privateKey
@@ -389,6 +389,39 @@ export default {
         console.error("Decryption error:", error);
         throw error;
       }
+    },
+
+    async decryptBlock_2(encryptedBase64, K_dec) {
+      const privateKey = await this.importPrivateKey(K_dec);
+
+      const decryptedBlock = await window.crypto.subtle.decrypt(
+        {
+          name: "RSA-OAEP", // Algoritmo RSA-OAEP
+        },
+        privateKey, // Chiave privata per decriptare
+        encryptedBase64 // Blocco cifrato da decriptare
+      );
+
+      return decryptedBlock;
+
+    },
+    async importPrivateKey(K_dec) {
+            // Decodifica la chiave privata K_dec da base64
+            const binaryKey = Uint8Array.from(atob(K_dec), c => c.charCodeAt(0));
+
+            // Importa la chiave privata in formato leggibile da Crypto API
+            const privateKey = await window.crypto.subtle.importKey(
+                "pkcs8", // Formato della chiave privata (PKCS8)
+                binaryKey, // Chiave decodificata
+                {
+                    name: "RSA-OAEP", // Algoritmo RSA-OAEP
+                    hash: "SHA-256",  // Hashing per RSA-OAEP
+                },
+                false, // La chiave privata non è per la firma
+                ["decrypt"] // Operazioni consentite (solo decriptazione)
+            );
+
+            return privateKey;
     },
 
 
