@@ -176,9 +176,15 @@ export default {
         this.getCampaignStatus();
 
         
-        if(this.$store.state.k_enc == null) {
+        if (this.$store.state.k_enc == null) {
             this.adminKeys();
+        } else {
+            console.log('K_ENC: ', this.$store.state.k_enc);
+            console.log('K_DEC: ', this.$store.state.k_dec);
+            this.k_enc = this.$store.state.k_enc
+            this.k_dec = this.$store.state.k_dec
         }
+
         this.adminOperations();
         
         // manage the event showAlertSuccessLoad
@@ -243,7 +249,7 @@ export default {
 
         // Operazioni svolte dall'ADMIN
         async adminOperations() {
-            console.log("ADMIN OPERATIONS") 
+            console.log("ADMIN OPERATIONS")
 
             let provider, contract, signer, contractWithSigner;
 
@@ -265,9 +271,9 @@ export default {
                     // l'Admin ottiene la chiave pubblica dell'utente
                     // cifra la encryptionKey K con la chiave pubblica dell'utente
                     console.log("ADMIN: ENCRYPT K_ENC")
-                    const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
-                    const encryptedKey = await this.encryptKeyECIES(K, publicKey);
-                    //const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_enc, publicKey);
+                    //const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
+                    //const encryptedKey = await this.encryptKeyECIES(K, publicKey);
+                    const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_enc, publicKey);
                     console.log('ADMIN: Encrypted K:', encryptedKey);
 
                     // invia encryptedKey allo SC
@@ -289,9 +295,9 @@ export default {
                     // l'Admin ottiene la chiave pubblica del Verifier
                     // cifra la encryptionKey K con la chiave pubblica del Verifier
                     console.log("ADMIN: ENCRYPT K_DEC")
-                    const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
-                    const encryptedKey = await this.encryptKeyECIES(K, publicKey);
-                    //const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_dec, publicKey);
+                    //const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
+                    //const encryptedKey = await this.encryptKeyECIES(K, publicKey);
+                    const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_dec, publicKey);
                     console.log('ADMIN: Encrypted K:', encryptedKey);
 
                     // invia encryptedKey allo SC

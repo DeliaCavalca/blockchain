@@ -172,6 +172,50 @@ export default {
             return publicKey;
     },
 
+    // Test codifica messaggio con la chiave k_enc
+    async encryptMessage(message, K_enc) {
+      try {
+        const publicKey = await this.importPublicKey(K_enc);
+
+        const jsonString = JSON.stringify(message);
+        const encoder = new TextEncoder();
+        const encodedMessage = encoder.encode(jsonString);
+        console.log(encodedMessage)
+
+        const encrypted = await window.crypto.subtle.encrypt(
+          {
+            name: "RSA-OAEP",
+          },
+          publicKey,
+          encodedMessage
+        );
+
+        return new Uint8Array(encrypted); 
+      } catch(error) {
+        console.log("ERRORE DURANTE LA CODIFICA CON K ENC")
+        console.log(error)
+        return;
+      }
+      
+    },
+    // Test decodifica messaggio con la chiave k_dec
+    async decryptMessage(encryptedMessage, K_dec) {
+      const privateKey = await this.importPrivateKey(K_dec);
+
+      const binaryStr = atob(encryptedMessage);
+      const binaryArray = new Uint8Array([...binaryStr].map(char => char.charCodeAt(0)));
+
+      const decrypted = await window.crypto.subtle.decrypt(
+        {
+          name: "RSA-OAEP",
+        },
+        privateKey,
+        binaryArray
+      );
+
+        return new TextDecoder().decode(decrypted);
+    },
+
 
     // Funzione per calcolare SHA-256 del file
     async computeSHA256(input) {
@@ -388,13 +432,32 @@ export default {
             const decryptedKey = await this.decryptKeyECIES(encryptedKey, this.privateKey);
             console.log(`USER: K: ${decryptedKey}`);
             
+            // recupero il contenuto del file
+            // Converti il file in un array di byte
+            const fileArrayBuffer = await this.file.arrayBuffer();
+            const fileUint8Array = new Uint8Array(fileArrayBuffer);
+            const binaryString = String.fromCharCode(...fileUint8Array);
+            console.log(binaryString)
+
             // l'utente cifra i dati e li carica su IPFS
+            const encryptedFile = await this.encryptMessage(binaryString, decryptedKey)
+            console.log("ENCRYPTED FILE: ", encryptedFile);
+            //const k_dec = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCq2R11lE3iwalniBBXVWWXdZxf7NW2X8HRrCYlm0eFbcppOS9q1YKcpeBE8pm7wxm96s9kEM+GiiPbIEYD2/KjfdIekdA0Vv08ITuJQEPlrRWhuhVB454LMgovfq8Y+6qAGJd47EHF8WkltmHazfYmKXyqKoEGZpYwA30+p9z8XmECyo0NeaBgAFD1nCrAU2JOVOzvgy4ycxbEXJt/awDJHwkcBQIrCNFuxi3XupIOW13qks/vwj6n2xCkI2NBk+cZ05NVKmoG0cVlkS4A8mSLnA4S6galew2RJuDpvy2bDwH0GhM8bs6PTS1Us0h3Oyzb5cFweYcg8KNzYBcsdf0DAgMBAAECggEAEewizgHXxdDhD45TgIXh2WiqFdoHdVFISNGRUuKeNx4UXMN1+PQa9onkI/d7LxpBag3m4a1tx8RYDJWvIpqBMqtxTmmneMYjXJpz32sRdFea7FNUBYx2OOBv9xmIDsvfz/5EbZgDMlun1x/x1f1DNC+n90XsMRqz6KeFDPyZDxQ/oioGvIBDp05CdgGGp42Dfqwc6gIX5gO/UycDSezZLr/CQiazcGoVPnDJwMUumwI4QonrTambvzaluylfmiOAS3Bx8tQni9cmGDJUs8Cz6AbFGeGP9gOXR4PHtdXJNivj7sNG3u/kEOm+AftSnP0LPeaypok31kWRBfP1aIUkUQKBgQDR2sZqdAopMZDkTFVVIUZgf05ot+V7zv2DGt+1VeeEvVG46IhuNK3y2QECLyx5vCm+yhfAEYDzUubH6pEYOb6z/lc/R77SQ6vIBwlG2JYOEG8Ji9TC7hd+JeELJpOmc/5SBQYZu4rYJSJVLG+oULNAEZC/AM0Yr2Wm+OLxk+ETuwKBgQDQapH43/+QhKQCydJfK2NuTvv07V3NfhiyWTsfi7NnW5CBiutMBHK2pe35cWkRbNyQUNgVlLduFHvAhXlQ+CcHbmu021Viz/gUZ9yB+7yIM6gnUcXrcdkawOoJ+2prHX3cQhHwtS3galLNS2cqBnIrnDLOVXbMEyI6t+RtVSnTWQKBgDDm8mXMNLH0wvbwctIrtuK1x+fPMsLvMVRj5s2y/wiHtYuJZIGJ9R8qQnnn1E1p87BqF67CZXJOV0ku+DDVBAOduWcdqPIGovkx6o9/2TfdzIJE+4eRRBg5a3/VtYKMdS9XzFwiv/AudxmyCTMH2z2K2lgoL6MY/G80gG4bL9ARAoGAHaBIh7wvs/dm6Q6PXP/p7nBD2Jk1UFSwZgnRIbbWFccqT3/T2sZ3GAeWQHMioFt9LvaPAOJXAMrgnIlcqWndAm1r2hWjmZw+g4gQDFogfqv5Jz20iLdySR9LJYgbpIZYscqiijj3AIOcqZoiXBL2f8SAZFw5uuCtaPNjATet7mECgYEAgymxox4y4nUye2EI80st+47cqWghF3xGgNeTYdJ5Ve4V2+m5+809irE65wCKKl0jCMVl6EHGGd7T21o+to1TBERPrl5dvPcStIapgIJZfwX8RROjU5uxq47p0LBPxUOHqemPByLH7cl+zyTui0T/jsWbGK/OmJZyU4oUCQKS8YY="
+            //const decrypted = await this.decryptMessage(encryptedFile, k_dec)
+            //console.log("FILE: ", decrypted)
+            //const decryptedBinary = new Uint8Array(atob(decrypted).split("").map(c => c.charCodeAt(0)));
+            //const decryptedBlob = new Blob([decryptedBinary]);
+            //console.log("FILE Decifrato: ", decryptedBlob);
+
+
+            /*
             await this.uploadToIpfs(decryptedKey);
             console.log("USER: UPLOAD TO IPFS DONE");
 
             // comunicare allo SC la posizione dei dati su IPFS (CID)
             await this.sendCIDToContract(this.ipfsHash);
             console.log("USER: CID SENT TO CONTRACT");
+            */
 
             this.$store.commit('SET_UPLOADING', false);
           }
