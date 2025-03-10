@@ -179,8 +179,8 @@ export default {
         if (this.$store.state.k_enc == null) {
             this.adminKeys();
         } else {
-            console.log('K_ENC: ', this.$store.state.k_enc);
-            console.log('K_DEC: ', this.$store.state.k_dec);
+            //console.log('K_ENC: ', this.$store.state.k_enc);
+            //console.log('K_DEC: ', this.$store.state.k_dec);
             this.k_enc = this.$store.state.k_enc
             this.k_dec = this.$store.state.k_dec
         }
@@ -250,6 +250,38 @@ export default {
         // Operazioni svolte dall'ADMIN
         async adminOperations() {
             console.log("ADMIN OPERATIONS")
+
+            const encryptedMessage = await this.encryptMessage("Ciao ciao", this.k_enc);
+            const decryptedMessage = await this.decryptMessage(encryptedMessage, this.k_dec);
+            console.log("TEST Decrypted:", decryptedMessage);
+
+            const test = {
+                    "user_id": "0xA12BF45", 
+                    "device_id": "device_123",
+                    "data": [
+                        {
+                        "timestamp": "2025-01-30T12:00:00.000Z",
+                        "latitude": 37.7749,
+                        "longitude": -122.4194,
+                        "altitude": 15.3,
+                        "speed": 5.2,
+                        "accuracy": 3.5
+                        },
+                        {
+                        "timestamp": "2025-01-30T12:01:00.000Z",
+                        "latitude": 37.7750,
+                        "longitude": -122.4195,
+                        "altitude": 15.8,
+                        "speed": 5.0,
+                        "accuracy": 3.6
+                        }
+                    ]
+                };
+            const jsonString = JSON.stringify(test);
+            const encryptedMessage_2 = await this.encryptMessage(jsonString, this.k_enc);
+            const decryptedMessage_2 = await this.decryptMessage(encryptedMessage_2, this.k_dec);
+            console.log("TEST Decrypted 2:", decryptedMessage_2);
+
 
             let provider, contract, signer, contractWithSigner;
 
