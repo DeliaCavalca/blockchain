@@ -255,7 +255,7 @@ export default {
             const decryptedMessage = await this.decryptMessage(encryptedMessage, this.k_dec);
             console.log("TEST Decrypted:", decryptedMessage);
 
-            const test = {
+            const test_1 = {
                     "user_id": "0xA12BF45", 
                     "device_id": "device_123",
                     "data": [
@@ -276,11 +276,22 @@ export default {
                         "accuracy": 3.6
                         }
                     ]
-                };
-            const jsonString = JSON.stringify(test);
-            const encryptedMessage_2 = await this.encryptMessage(jsonString, this.k_enc);
+            };
+            const test_2 = {
+                    "user_id": "0xA12BF45", 
+                    "device_id": "device_123",
+                    "data": [
+                    ]
+            };
+            const jsonString_2 = JSON.stringify(test_2);
+            const encryptedMessage_2 = await this.encryptMessage(jsonString_2, this.k_enc);
             const decryptedMessage_2 = await this.decryptMessage(encryptedMessage_2, this.k_dec);
             console.log("TEST Decrypted 2:", decryptedMessage_2);
+
+            const jsonString_1 = JSON.stringify(test_1);
+            const encryptedMessage_1 = await this.encryptMessage(jsonString_1, this.k_enc);
+            const decryptedMessage_1 = await this.decryptMessage(encryptedMessage_1, this.k_dec);
+            console.log("TEST Decrypted 1:", decryptedMessage_1);
 
 
             let provider, contract, signer, contractWithSigner;
