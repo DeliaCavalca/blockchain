@@ -20,4 +20,5 @@ app.use(VueAxios, axios)
 
 // use app instance to mount to <div id="app">
 // in public/index.html get div with id="app" and load content inside it
+store.dispatch('resetStore');
 app.mount('#app')

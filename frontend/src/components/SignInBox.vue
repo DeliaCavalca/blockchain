@@ -110,9 +110,6 @@ export default {
           const status = await contract.getCampaignStatus();
           console.log("Stato della campagna: ", status);
 
-          // Ottieni il chunk size (dimensione dei blocchi in cui suddividere i dati)      
-          const chunkSize = await contract.getChunkSize();
-          console.log("Chunk Size: ", chunkSize);
           
           console.log("Connesso con l'indirizzo:", this.userAddress);
 
@@ -120,7 +117,6 @@ export default {
           this.$store.commit('SET_USER_ROLE', roleString);
           this.$store.commit('SET_ETH_BALANCE', ethBalance);
           this.$store.commit('SET_STATUS', status);
-          this.$store.commit('SET_CHUNK_SIZE', chunkSize);
                    
         } catch (error) {
           console.error("Errore durante la connessione:", error);

@@ -169,6 +169,8 @@ export default {
   
   
     created() {
+        
+
         this.contractAddress = this.$store.state.contractAddress
         this.userAddress = this.$store.state.userAddress
         this.userRole = this.$store.state.userRole
@@ -178,14 +180,15 @@ export default {
         
         if (this.$store.state.k_enc == null) {
             this.adminKeys();
+            
         } else {
             //console.log('K_ENC: ', this.$store.state.k_enc);
             //console.log('K_DEC: ', this.$store.state.k_dec);
             this.k_enc = this.$store.state.k_enc
             this.k_dec = this.$store.state.k_dec
-        }
 
-        this.adminOperations();
+            this.adminOperations();
+        }
         
         // manage the event showAlertSuccessLoad
         eventBus.on('showAlertSuccessLoad', () => {
@@ -245,17 +248,14 @@ export default {
             const decryptedMessage = await this.decryptMessage(encryptedMessage, this.k_dec);
             console.log("TEST Decrypted:", decryptedMessage);
 
+            this.adminOperations();
         },
 
         // Operazioni svolte dall'ADMIN
         async adminOperations() {
             console.log("ADMIN OPERATIONS")
 
-            const encryptedMessage = await this.encryptMessage("Ciao ciao", this.k_enc);
-            const decryptedMessage = await this.decryptMessage(encryptedMessage, this.k_dec);
-            console.log("TEST Decrypted:", decryptedMessage);
-
-            const test_1 = {
+            const test_2 = {
                     "user_id": "0xA12BF45", 
                     "device_id": "device_123",
                     "data": [
@@ -267,31 +267,12 @@ export default {
                         "speed": 5.2,
                         "accuracy": 3.5
                         },
-                        {
-                        "timestamp": "2025-01-30T12:01:00.000Z",
-                        "latitude": 37.7750,
-                        "longitude": -122.4195,
-                        "altitude": 15.8,
-                        "speed": 5.0,
-                        "accuracy": 3.6
-                        }
-                    ]
-            };
-            const test_2 = {
-                    "user_id": "0xA12BF45", 
-                    "device_id": "device_123",
-                    "data": [
                     ]
             };
             const jsonString_2 = JSON.stringify(test_2);
             const encryptedMessage_2 = await this.encryptMessage(jsonString_2, this.k_enc);
             const decryptedMessage_2 = await this.decryptMessage(encryptedMessage_2, this.k_dec);
-            console.log("TEST Decrypted 2:", decryptedMessage_2);
-
-            const jsonString_1 = JSON.stringify(test_1);
-            const encryptedMessage_1 = await this.encryptMessage(jsonString_1, this.k_enc);
-            const decryptedMessage_1 = await this.decryptMessage(encryptedMessage_1, this.k_dec);
-            console.log("TEST Decrypted 1:", decryptedMessage_1);
+            console.log("TEST Decrypted:", decryptedMessage_2);
 
 
             let provider, contract, signer, contractWithSigner;
@@ -317,7 +298,7 @@ export default {
                     //const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
                     //const encryptedKey = await this.encryptKeyECIES(K, publicKey);
                     const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_enc, publicKey);
-                    console.log('ADMIN: Encrypted K:', encryptedKey);
+                    //console.log('ADMIN: Encrypted K:', encryptedKey);
 
                     // invia encryptedKey allo SC
                     console.log("SENDING Encripted Key to Contract...")
@@ -328,7 +309,7 @@ export default {
 
                 // Operazioni svolte dall'ADMIN
                 // Admin in ascolto dell'evento "VerifierEnrolled" dallo SC
-                contract.once("VerifierEnrolled", async (user, publicKey) => {
+                contract.on("VerifierEnrolled", async (user, publicKey) => {
                     console.log("------- ADMIN EVENT 2: VerifierEnrolled")
 
                     signer = provider.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Admin Address
@@ -341,7 +322,7 @@ export default {
                     //const K = "qAR0LRGH2JhMVw8k2+zg1ECAk1j9xo3ZDc7DA2rCpwo=";
                     //const encryptedKey = await this.encryptKeyECIES(K, publicKey);
                     const encryptedKey = await this.encryptKeyECIES(this.$store.state.k_dec, publicKey);
-                    console.log('ADMIN: Encrypted K:', encryptedKey);
+                    //console.log('ADMIN: Encrypted K:', encryptedKey);
 
                     // invia encryptedKey allo SC
                     console.log("SENDING Encripted Key to Contract...")

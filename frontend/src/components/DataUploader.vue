@@ -29,7 +29,7 @@ import { ethers } from 'ethers';
 import DataStorage from "../../../hardhat/artifacts/contracts/Crowdsensing.sol/Crowdsensing.json"; 
 import eventBus from '@/eventBus';
 import { mapGetters } from 'vuex'
-import accounts from "@/assets/hardhat-accounts.json";
+//import accounts from "@/assets/hardhat-accounts.json";
 
 import CryptoJS from "crypto-js";
 import EC from 'elliptic';
@@ -101,58 +101,18 @@ export default {
         this.file = null;
       }
     },
-
-
-    async encryptBlock(block, key) {
-      try {
-        if (!key) throw new Error("No encryption key provided");
-
-        console.log("Encrypting block..."); 
-        console.log("Encrypted Key:", key);
-
-        // Converte il blocco binario in stringa Base64
-        const blockWordArray = CryptoJS.lib.WordArray.create(block);
-        const blockBase64 = CryptoJS.enc.Base64.stringify(blockWordArray);
-
-        // Cifra il blocco con AES
-        const encryptedData = CryptoJS.AES.encrypt(blockBase64, key).toString();
-
-        return encryptedData;
-
-      } catch (error) {
-        console.error("Errore nella cifratura:", error);
-        throw error;
-      }
+    async fileToString(file) {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsText(file);
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = error => reject(error);
+      });
     },
 
-    async encryptBlock_2(block, K_enc) {
-      console.log("Encrypting block..."); 
-      const publicKey = await this.importPublicKey(K_enc);
 
-      if (block.length > 214) {
-        throw new Error("Block size is too large for RSA-OAEP");
-      }
 
-      const blockArrayBuffer = new ArrayBuffer(block.length);
-      const blockUint8Array = new Uint8Array(blockArrayBuffer);
-      blockUint8Array.set(block);
-
-      try {
-        const encryptedBlock = await window.crypto.subtle.encrypt(
-          {
-            name: "RSA-OAEP", // Algoritmo RSA-OAEP
-          },
-          publicKey,
-          blockArrayBuffer // Blocco da cifrare
-        );
-
-        return new Uint8Array(encryptedBlock);
-      } catch (error) {
-        console.error("Errore nella cifratura RSA:", error);
-        throw error;
-      }
-
-    },
+    // Funzioni per la codifica del file
     async importPublicKey(K_enc) {
             // Decodifica la chiave pubblica K_enc da base64
             const binaryKey = Uint8Array.from(atob(K_enc), c => c.charCodeAt(0));
@@ -171,125 +131,37 @@ export default {
 
             return publicKey;
     },
-
-    // Test codifica messaggio con la chiave k_enc
+    
     async encryptMessage(message, K_enc) {
-      try {
-        const publicKey = await this.importPublicKey(K_enc);
+      const publicKey = await this.importPublicKey(K_enc);
 
-        const jsonString = JSON.stringify(message);
-        const encoder = new TextEncoder();
-        const encodedMessage = encoder.encode(jsonString);
-        console.log(encodedMessage)
+      const encoder = new TextEncoder();
+      const encodedMessage = encoder.encode(message);
 
-        const encrypted = await window.crypto.subtle.encrypt(
-          {
-            name: "RSA-OAEP",
-          },
-          publicKey,
-          encodedMessage
-        );
-
-        return new Uint8Array(encrypted); 
-      } catch(error) {
-        console.log("ERRORE DURANTE LA CODIFICA CON K ENC")
-        console.log(error)
-        return;
-      }
-      
-    },
-    // Test decodifica messaggio con la chiave k_dec
-    async decryptMessage(encryptedMessage, K_dec) {
-      const privateKey = await this.importPrivateKey(K_dec);
-
-      const binaryStr = atob(encryptedMessage);
-      const binaryArray = new Uint8Array([...binaryStr].map(char => char.charCodeAt(0)));
-
-      const decrypted = await window.crypto.subtle.decrypt(
+      const encrypted = await window.crypto.subtle.encrypt(
         {
           name: "RSA-OAEP",
         },
-        privateKey,
-        binaryArray
+          publicKey,
+          encodedMessage
       );
 
-        return new TextDecoder().decode(decrypted);
+      return btoa(String.fromCharCode(...new Uint8Array(encrypted))); // Convertito in Base64
     },
 
+   
+    
 
-    // Funzione per calcolare SHA-256 del file
-    async computeSHA256(input) {
-      if (input instanceof Blob) {
-        input = await input.arrayBuffer(); // Converte Blob in ArrayBuffer
-      }
-
-      const buffer = new Uint8Array(input);
-      const hash = ethers.utils.keccak256(buffer); // Calcola l'hash
-      return hash;
-    },
 
     // Carica il file su IPFS
-    async uploadToIpfs(key) {
+    async uploadToIpfs(encryptedFile) {
       try {
-        if (!this.file) {
-          throw new Error("No file selected");
-        }
 
-        // Converti il file in un array di byte
-        const fileArrayBuffer = await this.file.arrayBuffer();
-        const fileUint8Array = new Uint8Array(fileArrayBuffer);
-
-        // Definisci la dimensione del blocco
-        const BLOCK_SIZE = Number(this.$store.state.chunkSize);
-        //const BLOCK_SIZE = 214;
-        let blocks = [];
-
-        // recupera la chiave privata dell'utente
-        const user = accounts.find(acc => acc.address === this.userAddress);
-        const privateKey = user.privateKey;
-        const wallet = new ethers.Wallet(privateKey);
+        let dataToUpload = {
+          file: encryptedFile
+        };
         
-
-        // Cifra ogni blocco
-        for (let i = 0; i < fileUint8Array.length; i += BLOCK_SIZE) {
-            //console.log("CODIFICA BLOCCO - ", i);
-            
-            // Estrai il blocco
-            let block = fileUint8Array.slice(i, i + BLOCK_SIZE);
-            console.log(block) // Unit8Array(256)
-
-            // Cifra il blocco con AES
-            console.log("KEY: ", key)
-            let encryptedData = await this.encryptBlock(block, key);
-            console.log("ENCRYPTED BLOCK: ", encryptedData) 
-
-            // Calcola l'hash del blocco cifrato
-            let blockHash = await this.computeSHA256(encryptedData);
-            //console.log("BLOCK DIGEST: ", blockHash)
-
-            // Firma l'hash con la chiave privata dell'utente
-            let signature = await wallet.signMessage(blockHash);
-
-            // Crea un oggetto con il blocco cifrato + firma
-            let dataToUpload = {
-              block: encryptedData,
-              signature: signature
-            };
-
-            console.log("DATA TO UPLOAD")
-            console.log(dataToUpload)
-
-            // Converti in Blob e carica su IPFS
-            const dataBlob = new Blob([JSON.stringify(dataToUpload)], { type: "application/json" });
-            const added = await client.add(dataBlob);
-
-            // Salva l'hash IPFS del blocco
-            blocks.push(added.path);
-        }
-
-        // Salva la struttura dati dei blocchi su IPFS
-        const indexData = { blocks: blocks }; // Lista dei CID
-        const indexBlob = new Blob([JSON.stringify(indexData)], { type: "application/json" });
+        const indexBlob = new Blob([JSON.stringify(dataToUpload)], { type: "application/json" });
         const indexAdded = await client.add(indexBlob);
 
         this.ipfsHash = indexAdded.path; // CID del file contenente i blocchi
@@ -420,6 +292,7 @@ export default {
         // Operazioni svolte dall'Utente
         // User in ascolto dell'evento "KeySent" dallo SC
         contract.on("KeySent", async (user, encryptedKey) => {
+          console.log("user: ", user)
           
           if(this.waitingKey){
             console.log("------- USER EVENT 2: KeySent")
@@ -429,40 +302,33 @@ export default {
             console.log(`USER: DECRYPT Encrypted_K: ${encryptedKey}`);
             
             // l'utente decifra la encryptedKey con la sua chiave privata
-            const decryptedKey = await this.decryptKeyECIES(encryptedKey, this.privateKey);
-            console.log(`USER: K: ${decryptedKey}`);
+            try{
+              const decryptedKey = await this.decryptKeyECIES(encryptedKey, this.privateKey);
+              console.log(`USER: K: ${decryptedKey}`);
+              
+              // ottieni il file e convertilo in stringa
+              const fileString = await this.fileToString(this.file);
+              //console.log("STRING: ", fileString)
+
+              // l'utente cifra i dati e li carica su IPFS
+              const encryptedFile = await this.encryptMessage(fileString, decryptedKey)
+              //console.log("ENCRYPTED FILE: ", encryptedFile);
+              
+              await this.uploadToIpfs(encryptedFile);
+              console.log("USER: UPLOAD TO IPFS DONE");
+
+              // comunicare allo SC la posizione dei dati su IPFS (CID)
+              await this.sendCIDToContract(this.ipfsHash);
+              console.log("USER: CID SENT TO CONTRACT");
+              
+
+              this.$store.commit('SET_UPLOADING', false);
+              this.waitingKey = false
+            } catch(error) {
+              console.log("...")
+            }
             
-            // recupero il contenuto del file
-            // Converti il file in un array di byte
-            const fileArrayBuffer = await this.file.arrayBuffer();
-            const fileUint8Array = new Uint8Array(fileArrayBuffer);
-            const binaryString = String.fromCharCode(...fileUint8Array);
-            console.log(binaryString)
-
-            // l'utente cifra i dati e li carica su IPFS
-            const encryptedFile = await this.encryptMessage(binaryString, decryptedKey)
-            console.log("ENCRYPTED FILE: ", encryptedFile);
-            //const k_dec = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCq2R11lE3iwalniBBXVWWXdZxf7NW2X8HRrCYlm0eFbcppOS9q1YKcpeBE8pm7wxm96s9kEM+GiiPbIEYD2/KjfdIekdA0Vv08ITuJQEPlrRWhuhVB454LMgovfq8Y+6qAGJd47EHF8WkltmHazfYmKXyqKoEGZpYwA30+p9z8XmECyo0NeaBgAFD1nCrAU2JOVOzvgy4ycxbEXJt/awDJHwkcBQIrCNFuxi3XupIOW13qks/vwj6n2xCkI2NBk+cZ05NVKmoG0cVlkS4A8mSLnA4S6galew2RJuDpvy2bDwH0GhM8bs6PTS1Us0h3Oyzb5cFweYcg8KNzYBcsdf0DAgMBAAECggEAEewizgHXxdDhD45TgIXh2WiqFdoHdVFISNGRUuKeNx4UXMN1+PQa9onkI/d7LxpBag3m4a1tx8RYDJWvIpqBMqtxTmmneMYjXJpz32sRdFea7FNUBYx2OOBv9xmIDsvfz/5EbZgDMlun1x/x1f1DNC+n90XsMRqz6KeFDPyZDxQ/oioGvIBDp05CdgGGp42Dfqwc6gIX5gO/UycDSezZLr/CQiazcGoVPnDJwMUumwI4QonrTambvzaluylfmiOAS3Bx8tQni9cmGDJUs8Cz6AbFGeGP9gOXR4PHtdXJNivj7sNG3u/kEOm+AftSnP0LPeaypok31kWRBfP1aIUkUQKBgQDR2sZqdAopMZDkTFVVIUZgf05ot+V7zv2DGt+1VeeEvVG46IhuNK3y2QECLyx5vCm+yhfAEYDzUubH6pEYOb6z/lc/R77SQ6vIBwlG2JYOEG8Ji9TC7hd+JeELJpOmc/5SBQYZu4rYJSJVLG+oULNAEZC/AM0Yr2Wm+OLxk+ETuwKBgQDQapH43/+QhKQCydJfK2NuTvv07V3NfhiyWTsfi7NnW5CBiutMBHK2pe35cWkRbNyQUNgVlLduFHvAhXlQ+CcHbmu021Viz/gUZ9yB+7yIM6gnUcXrcdkawOoJ+2prHX3cQhHwtS3galLNS2cqBnIrnDLOVXbMEyI6t+RtVSnTWQKBgDDm8mXMNLH0wvbwctIrtuK1x+fPMsLvMVRj5s2y/wiHtYuJZIGJ9R8qQnnn1E1p87BqF67CZXJOV0ku+DDVBAOduWcdqPIGovkx6o9/2TfdzIJE+4eRRBg5a3/VtYKMdS9XzFwiv/AudxmyCTMH2z2K2lgoL6MY/G80gG4bL9ARAoGAHaBIh7wvs/dm6Q6PXP/p7nBD2Jk1UFSwZgnRIbbWFccqT3/T2sZ3GAeWQHMioFt9LvaPAOJXAMrgnIlcqWndAm1r2hWjmZw+g4gQDFogfqv5Jz20iLdySR9LJYgbpIZYscqiijj3AIOcqZoiXBL2f8SAZFw5uuCtaPNjATet7mECgYEAgymxox4y4nUye2EI80st+47cqWghF3xGgNeTYdJ5Ve4V2+m5+809irE65wCKKl0jCMVl6EHGGd7T21o+to1TBERPrl5dvPcStIapgIJZfwX8RROjU5uxq47p0LBPxUOHqemPByLH7cl+zyTui0T/jsWbGK/OmJZyU4oUCQKS8YY="
-            //const decrypted = await this.decryptMessage(encryptedFile, k_dec)
-            //console.log("FILE: ", decrypted)
-            //const decryptedBinary = new Uint8Array(atob(decrypted).split("").map(c => c.charCodeAt(0)));
-            //const decryptedBlob = new Blob([decryptedBinary]);
-            //console.log("FILE Decifrato: ", decryptedBlob);
-
-
-            /*
-            await this.uploadToIpfs(decryptedKey);
-            console.log("USER: UPLOAD TO IPFS DONE");
-
-            // comunicare allo SC la posizione dei dati su IPFS (CID)
-            await this.sendCIDToContract(this.ipfsHash);
-            console.log("USER: CID SENT TO CONTRACT");
-            */
-
-            this.$store.commit('SET_UPLOADING', false);
           }
-
-          this.waitingKey = false
 
         });
 

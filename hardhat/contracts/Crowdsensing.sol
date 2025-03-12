@@ -52,7 +52,7 @@ contract Crowdsensing {
     uint256 public minimumParticipants = 10; // Numero minimo di partecipazioni per chiudere la campagna
     uint256 public verifiedCount = 0; // Numero di dati validatati (dati validi)
 
-    uint256 public chunkSize = 256; // Dimensione dei blocchi in cui suddividere i dati
+    //uint256 public chunkSize = 256; // Dimensione dei blocchi in cui suddividere i dati
 
     // Stato della campagna
     string public campaignStatus = "Ongoing";
@@ -341,9 +341,9 @@ contract Crowdsensing {
     }
 
     // Funzione per ottenere il chunk size
-    function getChunkSize() public view returns (uint256) {
-        return chunkSize;
-    }
+    //function getChunkSize() public view returns (uint256) {
+        //return chunkSize;
+    //}
 
     // Restituisce il numero minimo di partecipanti
     function getNumPartecipants() public view returns (uint256) {

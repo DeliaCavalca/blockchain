@@ -12,7 +12,6 @@ export default createStore({
     ethBalance: null,    // ETH Balance of the User Logged
 
     status: null, // Status of the Crowdsensing
-    chunkSize: null, // Chunk Size for Data Storage
 
     uploading: false, 
     searching: false, 
@@ -31,6 +30,22 @@ export default createStore({
     searching: (state) => state.searching,
   },
   mutations: {
+    RESET_STATE(state) {
+      Object.assign(state, {
+        userAddress: null,   // Address of the User Logged
+        userRole: null,      // Role of the User Logged
+        ethBalance: null,    // ETH Balance of the User Logged
+
+        status: null, // Status of the Crowdsensing
+
+        uploading: false, 
+        searching: false, 
+
+        k_enc: null,
+        k_dec: null,
+      });
+    },
+
     SET_USER_ADDRESS(state, userAddress) {
       state.userAddress = userAddress
     },
@@ -42,9 +57,6 @@ export default createStore({
     },
     SET_STATUS(state, status) {
       state.status = status
-    },
-    SET_CHUNK_SIZE(state, chunkSize) {
-      state.chunkSize = chunkSize
     },
     SET_UPLOADING(state, uploading) {
       state.uploading = uploading
@@ -61,6 +73,9 @@ export default createStore({
     
   },
   actions: {
+    resetStore({ commit }) {
+      commit('RESET_STATE');
+    }
   },
   modules: {
   },
